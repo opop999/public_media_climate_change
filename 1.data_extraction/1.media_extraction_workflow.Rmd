@@ -1,0 +1,289 @@
+0.  Load required libraries
+
+```{r include=FALSE}
+  # Package names
+  packages <- c("dplyr", "readr", "purrr", "stringr", "tidyr")
+
+  # Install packages not yet installed
+  installed_packages <- packages %in% rownames(installed.packages())
+  if (any(installed_packages == FALSE)) {
+    install.packages(packages[!installed_packages])
+  }
+
+  # Packages loading
+  invisible(lapply(packages, library, character.only = TRUE))
+
+```
+
+1.  Extraction of counts for each of the media section in the selected timeframe
+
+```{r}
+# Source the respective function
+source("get_count_per_section.R")
+
+# Load dataset with sections for both media outlets
+media_sections_df <- read_csv("data/czech_tv_sections.csv", col_types = "iicc")
+
+# Extract counts for each of the sections
+section_count_list <- get_count_per_media(min_date = "2012-01-01T00:00:00",
+                                     max_date = "2022-04-30T23:59:59",
+                                     media_history_id_vector = media_sections_df$hist_id,
+                                     section_vector = media_sections_df$media_section,
+                                     media_id_vector = media_sections_df$id,
+                                     media_name = media_sections_df$media_name,
+                                     newton_api_token = Sys.getenv("NEWTON_TOKEN"),
+                                     log = FALSE)
+
+# Transform list to a dataset
+section_count_df <- bind_rows(section_count_list)
+
+# Save to a file
+
+saveRDS(section_count_df, "data/czech_tv_sections_with_counts.rds", compress = FALSE)
+
+```
+
+2.  Extraction of full media articles for CT 1 & CT 24
+
+```{r}
+# Source the respective function
+source("get_full_articles.R")
+
+# Separate the period of interest to smaller chunks, which should never
+# exceed 10 000 articles per period
+
+date_seq <- as.character(seq(as.Date("2012-01-01"), as.Date("2022-05-01"), by = "1 month"))
+
+# Specify, which media outlets we want to extract
+media_list <- list(
+  id = c(1075, 2971),
+  history_id = c(1817, 295),
+  name = c("ct24", "ct1")
+)
+
+# Start time measuring
+start_time <- Sys.time()
+
+# Extraction through 2 distinct for loops. The outer loop goes through the different
+# media outlets we want to extract. The inner loop goes through the extraction of
+# different time sub-periods we want to extract.
+
+for (o in seq_along(media_list[["name"]])) {
+  
+  for (i in head(seq_along(date_seq), -1)) {
+    
+    cat("\nMedia", media_list[["name"]][[o]], ": Loop nr.", i, "out of", length(date_seq) - 1, "for total time frame of", head(date_seq, 1), "to", tail(date_seq, 1), "\n>>>>------------<<<<\n")
+
+    list_of_full_dfs <- extract_full_articles(
+      min_date = date_seq[i],
+      max_date = date_seq[i + 1],
+      media_history_id = media_list[["history_id"]][[o]],
+      media_id = media_list[["id"]][[o]],
+      newton_api_token = Sys.getenv("NEWTON_TOKEN"),
+      log = TRUE,
+      log_path = "docs/"
+    )
+
+    # Save dataset parts
+    saveRDS(
+      object = distinct(bind_rows(list_of_full_dfs), Code, .keep_all = TRUE),
+      file = paste0("data/full_articles/", media_list[["name"]][[o]], "_part_", i, "_", date_seq[i], ".rds"),
+      compress = FALSE
+    )
+
+    
+    # Pause between loops
+    Sys.sleep(runif(1, 10, 30))
+
+  }
+
+    # Trigger garbage collection
+    gc()
+    
+  cat("The extraction of media", media_list[["name"]][[o]], "for total time frame of", head(date_seq, 1), "to", tail(date_seq, 1), "took:", difftime(Sys.time(), start_time, units = "mins"), "minutes")
+  
+}
+
+
+```
+
+3. Extraction of article annotations by section
+
+```{r}
+# Source the respective function
+source("get_annotated_articles_per_section.R")
+
+# Separate the period of interest to smaller chunks, which should never
+# exceed 10 000 articles per period
+date_seq <- seq(as.Date("2012-01-01T00:00:00"), as.Date("2022-05-01T00:00:00"), by = "4 months")
+
+# Load in dataset with article counts per sections, subseting sections with one or more articles
+section_count_df <- readRDS("data/czech_tv_sections_with_counts.rds") %>%
+  filter(count >= 1) %>%
+  transmute(
+    name = iconv(gsub(" ", "", tolower(media_name), fixed = TRUE), to = "ASCII//TRANSLIT"),
+    history_id = hist_id,
+    section = media_section,
+    count
+  )
+
+list_of_annotated_dfs <- vector(mode = "list", length = length(section_count_df[["section"]]))
+
+# Start time measuring
+start_time <- Sys.time()
+
+for (o in seq_along(section_count_df[["section"]])) {
+  if (section_count_df[["count"]][[o]] <= 10000) {
+    list_of_annotated_dfs[[o]] <- extract_annotated_articles_by_section(
+      min_date = paste0(head(date_seq, 1), "T00:00:00"),
+      max_date = paste0(tail(date_seq[i + 1] - 1, 1), "T23:59:59"),
+      media_history_id = section_count_df[["history_id"]][[o]],
+      section = section_count_df[["section"]][[o]],
+      newton_api_token = Sys.getenv("NEWTON_TOKEN"),
+      log = TRUE,
+      log_path = "docs/"
+    )
+  } else if (section_count_df[["count"]][[o]] > 10000) {
+    annotated_chunks_list <- vector(mode = "list", length = length(date_seq) - 1)
+
+    for (i in head(seq_along(date_seq), -1)) {
+      annotated_chunks_list[[i]] <- extract_annotated_articles_by_section(
+        min_date = paste0(date_seq[i], "T00:00:00"),
+        max_date = paste0(date_seq[i + 1] - 1, "T23:59:59"),
+        media_history_id = section_count_df[["history_id"]][[o]],
+        section = section_count_df[["section"]][[o]],
+        newton_api_token = Sys.getenv("NEWTON_TOKEN"),
+        log = TRUE,
+        log_path = "docs/"
+      )
+    }
+
+    list_of_annotated_dfs[[o]] <- bind_rows(annotated_chunks_list)
+  }
+
+  cat("\n", o, "out of", length(section_count_df[["section"]]), "\nMedia section", section_count_df[["section"]][[o]], "of media outlet", section_count_df[["name"]][[o]], "saved to the list.\n")
+}
+
+cat("The extraction of all articles took:", difftime(Sys.time(), start_time, units = "mins"), "minutes\n")
+
+saveRDS(
+  object = bind_rows(list_of_annotated_dfs),
+  file = paste0("data/annotated_articles/annotated_articles_by_section.rds"),
+  compress = TRUE
+)
+
+```
+
+4. Data Validity Check
+
+```{r}
+# Load saved annotated dataset
+annotated_articles_df <- readRDS("data/annotated_articles/annotated_articles_by_section.rds")
+
+# Load full articles dataset by reading smaller .rds chunks
+full_articles_df <- list.files(path = "data/full_articles/", pattern = ".rds", full.names = TRUE) %>% 
+        map_dfr(readRDS)
+
+# Which Czech media articles are contained in the annotated dataset but are missing from the full dataset?
+annotations_of_missing_full_articles <- annotated_articles_df[annotated_articles_df$code %in% setdiff(annotated_articles_df$code, full_articles_df$Code),] %>% 
+  mutate(id = case_when(sourceName == "ČT 1" ~ 2971, sourceName == "ČT 24" ~ 1075),
+         history_id = case_when(sourceName == "ČT 1" ~ 295, sourceName == "ČT 24" ~ 1817)) %>% distinct(code, .keep_all = TRUE)
+
+# Which Czech media articles are contained in the full dataset but are missing from the annotated dataset?
+missing_full_articles_df <- full_articles_df[full_articles_df$Code %in% setdiff(full_articles_df$Code, annotated_articles_df$code),] %>% 
+  mutate(id = case_when(SourceName == "ČT 1" ~ 2971, SourceName == "ČT 24" ~ 1075),
+         history_id = case_when(SourceName == "ČT 1" ~ 295, SourceName == "ČT 24" ~ 1817)) %>% distinct(Code, .keep_all = TRUE)
+
+duplicates <- annotated_articles_df %>% group_by(code) %>% filter(n() > 1)
+
+```
+
+```{r}
+# Get counts of sections from annotated for which we have corresponding full text
+items_per_section <- annotated_articles_df %>%
+  mutate(
+    datePublished = as.Date(datePublished),
+    media_name = sourceName,
+    media_section = section
+  ) %>%
+  filter(datePublished < as.Date("2022-05-01")) %>%
+  count(media_name, media_section, name = "articles_we_have")
+
+# Load dataset with counts from "counting" API
+counted_articles_sections <- readRDS("data/czech_tv_sections_with_counts.rds")
+
+combined_counts <- counted_articles_sections %>% 
+  transmute(media_name, media_section, articles_newton_has = count) %>% 
+  filter(articles_newton_has > 0) %>% 
+  left_join(items_per_section, by = c("media_name", "media_section")) %>% 
+  mutate(difference = abs(articles_newton_has - articles_we_have))
+
+write.csv(combined_counts, "local_vs_newton_section_counts.csv")
+
+
+```
+
+
+
+
+5. Retrieving missing full articles one by one: With the "new" API
+
+```{r}
+source("get_full_articles_individual_new_api.R")
+
+# Create empty list to which we will append with every API call
+additional_full_articles_list_new_api <- vector(mode = "list", length = nrow(annotations_of_missing_full_articles))
+
+# Loop over the dataset with annotations of missing full articles
+for (i in seq_len(nrow(annotations_of_missing_full_articles))) {
+  additional_full_articles_list_new_api[[i]] <- extract_full_articles_individual_new_api(
+    article_code = annotations_of_missing_full_articles$code[[i]],
+    date_published = annotations_of_missing_full_articles$datePublished[[i]],
+    search_history_id = annotations_of_missing_full_articles$searchHistoryId[[i]],
+    newton_api_token = Sys.getenv("NEWTON_TOKEN"),
+    log_path = "docs/"
+  )
+  Sys.sleep(runif(1, 0.1, 0.2))
+
+  cat("\nArticle", i, "out of", nrow(annotations_of_missing_full_articles), "extracted.")
+}
+
+# Bind the list to one dataframe, rename the list columns to be compatible with the full articles
+additional_full_articles_df <- bind_rows(additional_full_articles_list_new_api) %>%
+  mutate(SourceId = case_when(sourceName == "ČT 1" ~ 2971, sourceName == "ČT 24" ~ 1075),
+         Id = NA) %>% 
+  distinct(code, .keep_all = TRUE) %>%
+  transmute(
+    "Content" = content,
+    "Page" = page,
+    "SectionName" = sectionName,
+    "Score" = NA,
+     Id,
+     SourceId,
+    "SourceName" = sourceName,
+    "Code" = code,
+    "Author" = as.list(author),
+    "PublishDate" = datePublished,
+    "ImportDate" = importDate,
+    "Url" = detailUrl,
+    "Title" = title
+  )
+
+saveRDS(additional_full_articles_df, "data/full_articles/additional_full_articles_df.rds")
+
+```
+
+```{r}
+test <- missing_full_articles_df[, c("PublishDate", "SourceName", "Title", "Content")] %>%
+  mutate(PublishDate = as.character(as.Date(PublishDate)),
+         Name = word(str_extract(Content, "^([^,]+)"), start = 1L, end = 2L)) %>% 
+  select(c("PublishDate", "SourceName", "Title", "Name"))
+
+test$Name[grep(pattern = "-", x = test$Name)] <- NA
+
+table(test$Name) %>% sort(decreasing = TRUE) %>% head(50) %>% as.data.frame() %>% DT::datatable()
+
+write.csv(test, "missing_articles_authors.csv")
+
+```
+
