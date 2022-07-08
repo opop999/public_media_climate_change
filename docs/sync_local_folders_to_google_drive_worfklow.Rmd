@@ -1,0 +1,39 @@
+---
+title: "Synchronize local with remote Google Drive backup repository"
+---
+
+# Setup
+```{r}
+source("google_drive_sync.R")
+
+# Authenticate using OAuth in the browser
+drive_auth()
+
+# Current user info
+drive_user()
+
+# Open web browser
+drive_browse("climate_change/datasets/")
+
+```
+
+
+Example usage
+```{r}
+list_of_folders_to_synchronize <-
+  list(
+    media_articles_full = c(
+      local_folder_path = "../1.data_extraction/data/full_articles/",
+      remote_folder_path = "climate_change/datasets/1.extracted_data/full/"
+    ),
+    media_articles_annotations = c(
+      local_folder_path = "../1.data_extraction/data/annotated_articles/",
+      remote_folder_path = "climate_change/datasets/1.extracted_data/annotations/"
+    )
+  )
+
+synchronize_selected_folders(list_of_folders = list_of_folders_to_synchronize)
+
+
+```
+
