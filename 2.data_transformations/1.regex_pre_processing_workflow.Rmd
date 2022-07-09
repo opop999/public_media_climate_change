@@ -1,0 +1,49 @@
+---
+title: "Text Pre-processing"
+---
+Load necessary packages
+```{r}
+# Package names
+packages <- c("dplyr", "stringr", "purrr", "tidyr")
+
+# Install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+invisible(lapply(packages, library, character.only = TRUE))
+
+```
+
+Use Python to process the full media article chunks with regex, saving all of them
+```{python}
+import os
+from pathlib import Path
+from pyreadr import read_r, write_rds
+from tqdm.auto import tqdm
+from cs_text_pre_process import pattern_preprocessing_cs
+
+INPUT_DIR = "../1.data_extraction/data/full_articles/"
+OUTPUT_DIR = "media_articles/data/regex_processed/chunks/"
+
+chunks = sorted([Path(file).stem for file in os.listdir(
+    INPUT_DIR) if file.endswith(".rds")])
+
+# Loop over the list of .rds chunks, load each one in, process it and save it to a different folder
+for chunk in tqdm(chunks):
+    media_df = read_r(f"{INPUT_DIR}{chunk}.rds")[None][["Code", "Title", "Content"]] \
+        .rename(columns={"Code": "article_id", "Title": "title", "Content": "text"})
+    media_df["text"] = media_df["title"] + ". " + media_df["text"]
+    media_df.drop("title", axis=1, inplace=True)
+    media_df = pattern_preprocessing_cs(input_df=media_df,
+                                        column="text",
+                                        pattern=r"<(.|\n)*?>|[^ěščřžýáíéóúůďťňĎŇŤŠČŘŽÝÁÍÉÚŮĚÓa-zA-Z0-9\.\?\! ]")
+    write_rds(f"{OUTPUT_DIR}regex_{chunk}.rds", media_df, compress="gzip")
+    print(f"Chunk {chunk} processed.", flush=True)
+    
+
+
+
+```

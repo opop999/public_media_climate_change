@@ -39,7 +39,7 @@ section_count_df <- bind_rows(section_count_list)
 
 # Save to a file
 
-saveRDS(section_count_df, "data/czech_tv_sections_with_counts.rds", compress = FALSE)
+saveRDS(section_count_df, "data/czech_tv_sections_with_counts.rds")
 
 ```
 
@@ -87,8 +87,7 @@ for (o in seq_along(media_list[["name"]])) {
     # Save dataset parts
     saveRDS(
       object = distinct(bind_rows(list_of_full_dfs), Code, .keep_all = TRUE),
-      file = paste0("data/full_articles/", media_list[["name"]][[o]], "_part_", i, "_", date_seq[i], ".rds"),
-      compress = FALSE
+      file = paste0("data/full_articles/", media_list[["name"]][[o]], "_part_", i, "_", date_seq[i], ".rds")
     )
 
     
@@ -168,8 +167,7 @@ cat("The extraction of all articles took:", difftime(Sys.time(), start_time, uni
 
 saveRDS(
   object = bind_rows(list_of_annotated_dfs),
-  file = paste0("data/annotated_articles/annotated_articles_by_section.rds"),
-  compress = TRUE
+  file = paste0("data/annotated_articles/annotated_articles_by_section.rds")
 )
 
 ```
@@ -179,6 +177,7 @@ saveRDS(
 ```{r}
 # Load saved annotated dataset
 annotated_articles_df <- readRDS("data/annotated_articles/annotated_articles_by_section.rds")
+
 
 # Load full articles dataset by reading smaller .rds chunks
 full_articles_df <- list.files(path = "data/full_articles/", pattern = ".rds", full.names = TRUE) %>% 
@@ -285,5 +284,21 @@ table(test$Name) %>% sort(decreasing = TRUE) %>% head(50) %>% as.data.frame() %>
 
 write.csv(test, "missing_articles_authors.csv")
 
+```
+
+# Optional: Change chunk sizing and naming
+```{r}
+# Load all chunks into memory
+full_articles_df <- list.files(path = "data/full_articles/", pattern = ".rds", full.names = TRUE) %>% 
+        map_dfr(readRDS)
+
+```
+
+```{r}
+full_articles_split <- split(full_articles_df, as.factor(format(as.Date(full_articles_df$PublishDate), "%Y-%m")))
+
+lapply(names(full_articles_split), function(df) {
+  saveRDS(distinct(full_articles_split[[df]]), file = paste0("data/full_articles/", df, ".rds"))
+})
 ```
 
