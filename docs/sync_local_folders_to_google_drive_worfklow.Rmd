@@ -29,6 +29,10 @@ list_of_folders_to_synchronize <-
     media_articles_annotations = c(
       local_folder_path = "../1.data_extraction/data/annotated_articles/",
       remote_folder_path = "climate_change/datasets/1.extracted_data/annotations/"
+    ),
+    media_articles_processed_regex = c(
+      local_folder_path = "../2.data_transformations/data/regex_processed/",
+      remote_folder_path = "climate_change/datasets/2.processed_data/regex_processed/"
     )
   )
 
