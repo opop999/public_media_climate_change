@@ -38,9 +38,12 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 
-# Large files: 
+# Large files:
 ## Article annotations
 1.data_extraction/data/annotated_articles/*.rds
 
 ## Article full versions
 1.data_extraction/data/full_articles/*.rds
+
+## Article regex processed
+2.data_transformations/data/regex_processed/*.rds
