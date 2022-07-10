@@ -21,6 +21,7 @@ Use Python to process the full media article chunks with regex, saving all of th
 ```{python}
 import os
 import gc
+import polars as pl
 from pathlib import Path
 from pyreadr import read_r, write_rds
 from tqdm import tqdm
@@ -29,18 +30,26 @@ from cs_text_pre_process import pattern_preprocessing_cs
 INPUT_DIR = "../1.data_extraction/data/full_articles/"
 OUTPUT_DIR = "data/regex_processed/"
 
+if not os.path.exists(OUTPUT_DIR):
+      # create directory if it doesn't exist
+      os.makedirs(OUTPUT_DIR)
+      
 # Check for already processed files in the output directory
 existing_processed_files = {Path(file.replace("regex_", "")).stem for file in os.listdir(
-        OUTPUT_DIR) if file.endswith(".rds")}
+        OUTPUT_DIR) if file.endswith((".rds", ".feather"))}
         
 # Get names of all of the chunks to be processed        
-chunks = sorted(({Path(file).stem for file in os.listdir(INPUT_DIR) if file.endswith(".rds")} - existing_processed_files))
+chunks = sorted(({Path(file).stem for file in os.listdir(INPUT_DIR) if file.endswith((".rds", ".feather"))} - existing_processed_files))[0:10]
 
 print(f"""The following chunks will will be processed: \n {chunks}""")
 
 gc.enable()
 
+```
+# Main workflow with Pandas library
+```{python}
 # Loop over the list of .rds chunks, load each one in, process it and save it to a different folder
+start = time()
 for chunk in tqdm(chunks):
     media_df = read_r(f"{INPUT_DIR}{chunk}.rds")[None][["Code", "Title", "Content"]] \
         .rename(columns={"Code": "article_id", "Title": "title", "Content": "text"})
@@ -51,6 +60,30 @@ for chunk in tqdm(chunks):
     write_rds(f"{OUTPUT_DIR}regex_{chunk}.rds", media_df, compress="gzip")
     del media_df
     gc.collect()
-print("Regex preprocessing finished")    
+print("Regex preprocessing finished")
+print("End in:", time() - start)
 
 ```
+
+# Alternative workflow with Polars library
+```{python}
+PATTERN = r"<(.|\n)*?>|[^ěščřžýáíéóúůďťňĎŇŤŠČŘŽÝÁÍÉÚŮĚÓa-zA-Z0-9.?! ]"
+for chunk in tqdm(chunks):
+    media_df = pl.read_ipc(f"{INPUT_DIR}{chunk}.feather") \
+                .lazy() \
+                .rename({"Code": "article_id", "Title": "title", "Content": "text"}) \
+                .with_columns([
+                    (pl.col("title") + ". " + pl.col("text"))
+                    .str.replace_all(PATTERN, " ")
+                    .str.replace_all(r"\.{2,}", ".")
+                    .str.strip()
+                    .str.replace_all(r"  +", " ")
+                    .alias("text")]) \
+                .select(["article_id", "text"]) \
+                .collect() \
+                .write_ipc(f"{OUTPUT_DIR}regex_{chunk}.feather", compression = "zstd")
+    del media_df
+    gc.collect()
+print("Regex preprocessing finished")
+```
+
