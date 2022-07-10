@@ -20,16 +20,25 @@ invisible(lapply(packages, library, character.only = TRUE))
 Use Python to process the full media article chunks with regex, saving all of them
 ```{python}
 import os
+import gc
 from pathlib import Path
 from pyreadr import read_r, write_rds
-from tqdm.auto import tqdm
+from tqdm import tqdm
 from cs_text_pre_process import pattern_preprocessing_cs
 
 INPUT_DIR = "../1.data_extraction/data/full_articles/"
-OUTPUT_DIR = "media_articles/data/regex_processed/chunks/"
+OUTPUT_DIR = "data/regex_processed/"
 
-chunks = sorted([Path(file).stem for file in os.listdir(
-    INPUT_DIR) if file.endswith(".rds")])
+# Check for already processed files in the output directory
+existing_processed_files = {Path(file.replace("regex_", "")).stem for file in os.listdir(
+        OUTPUT_DIR) if file.endswith(".rds")}
+        
+# Get names of all of the chunks to be processed        
+chunks = sorted(({Path(file).stem for file in os.listdir(INPUT_DIR) if file.endswith(".rds")} - existing_processed_files))
+
+print(f"""The following chunks will will be processed: \n {chunks}""")
+
+gc.enable()
 
 # Loop over the list of .rds chunks, load each one in, process it and save it to a different folder
 for chunk in tqdm(chunks):
@@ -37,13 +46,11 @@ for chunk in tqdm(chunks):
         .rename(columns={"Code": "article_id", "Title": "title", "Content": "text"})
     media_df["text"] = media_df["title"] + ". " + media_df["text"]
     media_df.drop("title", axis=1, inplace=True)
-    media_df = pattern_preprocessing_cs(input_df=media_df,
-                                        column="text",
+    media_df["text"] = pattern_preprocessing_cs(input_column=media_df["text"],
                                         pattern=r"<(.|\n)*?>|[^ěščřžýáíéóúůďťňĎŇŤŠČŘŽÝÁÍÉÚŮĚÓa-zA-Z0-9\.\?\! ]")
     write_rds(f"{OUTPUT_DIR}regex_{chunk}.rds", media_df, compress="gzip")
-    print(f"Chunk {chunk} processed.", flush=True)
-    
-
-
+    del media_df
+    gc.collect()
+print("Regex preprocessing finished")    
 
 ```
