@@ -2,7 +2,7 @@
 
 ```{r include=FALSE}
   # Package names
-  packages <- c("dplyr", "readr", "purrr", "stringr", "tidyr")
+  packages <- c("dplyr", "readr", "purrr", "stringr", "tidyr", "arrow")
 
   # Install packages not yet installed
   installed_packages <- packages %in% rownames(installed.packages())
@@ -294,14 +294,15 @@ full_articles_df <- list.files(path = "data/full_articles/", pattern = ".rds", f
 ```{r}
 full_articles_split <- split(full_articles_df, as.factor(format(as.Date(full_articles_df$PublishDate), "%Y-%m")))
 
-# If Linux, we can parallelize
+# If Linux, we can parallelize. Alternatively, we can save to .feather files for better compatibility with non-R scripts
+# using write_feather function
 
 if (Sys.info()[['sysname']] == "Linux") {
 library(parallel)
 
-mclapply(names(full_articles_split), function(df) {
+invisible(mclapply(names(full_articles_split), function(df) {
   saveRDS(distinct(full_articles_split[[df]]), file = paste0("data/full_articles/", df, ".rds"))
-}, mc.cores = detectCores() - 1)
+}, mc.cores = detectCores() - 1))
 
 } else {
 # If not Linux
