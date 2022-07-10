@@ -39,7 +39,7 @@ existing_processed_files = {Path(file.replace("regex_", "")).stem for file in os
         OUTPUT_DIR) if file.endswith((".rds", ".feather"))}
         
 # Get names of all of the chunks to be processed        
-chunks = sorted(({Path(file).stem for file in os.listdir(INPUT_DIR) if file.endswith((".rds", ".feather"))} - existing_processed_files))[0:10]
+chunks = sorted(({Path(file).stem for file in os.listdir(INPUT_DIR) if file.endswith((".rds", ".feather"))} - existing_processed_files))
 
 print(f"""The following chunks will will be processed: \n {chunks}""")
 
