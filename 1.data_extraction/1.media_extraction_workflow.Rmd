@@ -297,8 +297,21 @@ full_articles_df <- list.files(path = "data/full_articles/", pattern = ".rds", f
 ```{r}
 full_articles_split <- split(full_articles_df, as.factor(format(as.Date(full_articles_df$PublishDate), "%Y-%m")))
 
+# If Linux, we can parallelize
+
+if (Sys.info()[['sysname']] == "Linux") {
+library(parallel)
+
+mclapply(names(full_articles_split), function(df) {
+  saveRDS(distinct(full_articles_split[[df]]), file = paste0("data/full_articles/", df, ".rds"))
+}, mc.cores = detectCores() - 2)
+
+} else {
+# If not Linux
 lapply(names(full_articles_split), function(df) {
   saveRDS(distinct(full_articles_split[[df]]), file = paste0("data/full_articles/", df, ".rds"))
 })
+}
+  
 ```
 
