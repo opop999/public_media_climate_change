@@ -222,9 +222,6 @@ write.csv(combined_counts, "local_vs_newton_section_counts.csv")
 
 ```
 
-
-
-
 5. Retrieving missing full articles one by one: With the "new" API
 
 ```{r}
@@ -290,7 +287,7 @@ write.csv(test, "missing_articles_authors.csv")
 ```{r}
 # Load all chunks into memory
 full_articles_df <- list.files(path = "data/full_articles/", pattern = ".rds", full.names = TRUE) %>% 
-        map_dfr(readRDS)
+        map_dfr(~ mutate(readRDS(.), Author = unlist(Author)))
 
 ```
 
@@ -304,7 +301,7 @@ library(parallel)
 
 mclapply(names(full_articles_split), function(df) {
   saveRDS(distinct(full_articles_split[[df]]), file = paste0("data/full_articles/", df, ".rds"))
-}, mc.cores = detectCores() - 2)
+}, mc.cores = detectCores() - 1)
 
 } else {
 # If not Linux
