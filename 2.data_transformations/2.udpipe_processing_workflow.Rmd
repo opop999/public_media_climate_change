@@ -1,0 +1,38 @@
+---
+title: "UDPIPE Processing"
+---
+Load necessary packages
+```{r}
+# Package names
+packages <- c("dplyr")
+
+# Install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+invisible(lapply(packages, library, character.only = TRUE))
+
+```
+
+# Processing regex-cleaned chunks with UDPIPE model (via API)
+# Using RStudio jobs to parallelize 
+```{r}
+# Set up parameters for this job
+udpipe_period <- "2012|2013"
+udpipe_exclude <- FALSE
+
+# Identify dataset chunks of interest
+all_chunks_path_udpipe <- list.files(path = file.path("data", "regex_processed"), pattern = "*.rds", full.names = TRUE) %>%
+  .[grep(pattern = udpipe_period, ., invert = udpipe_exclude)] %>%
+  sort()
+
+all_chunks_name_udpipe <- list.files(path = file.path("data", "regex_processed"), pattern = "*.rds", full.names = FALSE) %>%
+  .[grep(pattern = udpipe_period, ., invert = udpipe_exclude)] %>%
+  sort()
+
+# Run the script as a RStudio job
+rstudioapi::jobRunScript(path = "udpipe_rstudio_jobs.R", importEnv = TRUE)
+```
