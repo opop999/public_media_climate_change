@@ -47,3 +47,7 @@ vignettes/*.pdf
 
 ## Article regex processed
 2.data_transformations/data/regex_processed/*.rds
+
+## Article udpipe processed
+2.data_transformations/data/udpipe_processed/*.rds
+

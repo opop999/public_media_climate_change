@@ -33,6 +33,10 @@ list_of_folders_to_synchronize <-
     media_articles_processed_regex = c(
       local_folder_path = "../2.data_transformations/data/regex_processed/",
       remote_folder_path = "climate_change/datasets/2.processed_data/regex_processed/"
+    ),
+    media_articles_processed_udpipe = c(
+      local_folder_path = "../2.data_transformations/data/udpipe_processed/",
+      remote_folder_path = "climate_change/datasets/2.processed_data/udpipe_processed/"
     )
   )
 
