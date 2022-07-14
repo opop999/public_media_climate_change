@@ -147,9 +147,11 @@ udpipe_process <- function(article_id,
     cat_sink <- function(..., file = paste0(log_path, "udpipe_api_process_log.txt"), append = TRUE) {
       cat(..., file = file, append = append)
     }
-    cat_sink("\n>--------------------<\n\n", as.character(Sys.time()))
+  } else {
+    cat_sink <- cat
   }
 
+  cat_sink("\n>--------------------<\n\n", as.character(Sys.time()))
   # 3. Loop over pages ------------------------------------------
 
   ## Create empty list to append results to

@@ -6,7 +6,8 @@ for (regex_file in all_regex_chunks) {
 
   udpipe_df_chunk <- udpipe_process(article_id = one_chunk$article_id,
                                     article_text = one_chunk$text,
-                                    log_path = file.path("docs/"))
+                                    log_path = file.path("docs/"),
+                                    log = FALSE)
 
   saveRDS(udpipe_df_chunk, paste0(file.path("data", "udpipe_processed", "udpipe_"), basename(regex_file)))
 

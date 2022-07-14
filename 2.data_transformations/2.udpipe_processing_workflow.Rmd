@@ -2,7 +2,7 @@
 title: "UDPIPE Processing"
 ---
 Load necessary packages
-```{r}
+```{r include=FALSE}
 # Package names
 packages <- c("dplyr")
 
@@ -24,6 +24,13 @@ invisible(lapply(packages, library, character.only = TRUE))
 udpipe_period <- "*"
 udpipe_exclude <- FALSE
 
+already_processed <-
+  list.files(
+    path = file.path("data", "udpipe_processed"),
+    pattern = "*.rds",
+    full.names = TRUE
+  ) %>% basename()
+
 # Identify dataset chunks of interest
 all_regex_chunks <-
   list.files(
@@ -31,8 +38,10 @@ all_regex_chunks <-
     pattern = "*.rds",
     full.names = TRUE
   ) %>%
-  .[grep(pattern = udpipe_period, ., invert = udpipe_exclude)] %>%
-  sort()
+  .[grep(pattern = udpipe_period, ., invert = udpipe_exclude)]
+  
+# Filter for already existing files
+all_regex_chunks <- file.path("data", "regex_processed", setdiff(basename(all_regex_chunks), gsub("udpipe_", "", already_processed, fixed = TRUE)))
 
 # Run the script as a RStudio job
 rstudioapi::jobRunScript(path = "udpipe_rstudio_jobs.R", importEnv = TRUE)
