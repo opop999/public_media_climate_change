@@ -21,15 +21,16 @@ invisible(lapply(packages, library, character.only = TRUE))
 # Using RStudio jobs to parallelize 
 ```{r}
 # Set up parameters for this job
-udpipe_period <- "2012|2013"
+udpipe_period <- "*"
 udpipe_exclude <- FALSE
 
 # Identify dataset chunks of interest
-all_chunks_path_udpipe <- list.files(path = file.path("data", "regex_processed"), pattern = "*.rds", full.names = TRUE) %>%
-  .[grep(pattern = udpipe_period, ., invert = udpipe_exclude)] %>%
-  sort()
-
-all_chunks_name_udpipe <- list.files(path = file.path("data", "regex_processed"), pattern = "*.rds", full.names = FALSE) %>%
+all_regex_chunks <-
+  list.files(
+    path = file.path("data", "regex_processed"),
+    pattern = "*.rds",
+    full.names = TRUE
+  ) %>%
   .[grep(pattern = udpipe_period, ., invert = udpipe_exclude)] %>%
   sort()
 
