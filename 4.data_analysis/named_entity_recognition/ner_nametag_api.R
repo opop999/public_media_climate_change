@@ -27,6 +27,10 @@ nametag_process <- function(article_id,
     is.logical(return_df)
   )
 
+  # Limit data.table multithreading, which can cause problems when this workflow
+  # is a long-running script with others.
+  data.table::setDTthreads(threads = 1)
+
   # 2. Add optional log printing for long extractions
   if (log == TRUE) {
     # Custom function to print console output to a file
