@@ -38,7 +38,7 @@ all_chunks_path_ner <- list.files(path = file.path("../../2.data_transformations
                               .[grep(pattern = ner_period, ., invert = ner_exclude)]
 
 # Filter for already existing files
-all_chunks_path_ner <- file.path("../../2.data_transformations", "data", "regex_processed", setdiff(basename(all_chunks_path_ner), gsub("udpipe_", "", already_ner_processed, fixed = TRUE)))
+all_chunks_path_ner <- file.path("../../2.data_transformations", "data", "regex_processed", setdiff(basename(all_chunks_path_ner), gsub("nametag_", "", already_ner_processed, fixed = TRUE)))
 
 # Run the script as a RStudio job
 rstudioapi::jobRunScript(path = "ner_rstudio_jobs.R", importEnv = TRUE)
