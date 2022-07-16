@@ -57,9 +57,11 @@ extract_annotated_articles_by_section <- function(search_string = "*",
     # Custom function to print console output to a file
     cat_sink <- function(..., file = paste0(log_path, "get_annotated_articles_log.txt"), append = TRUE) {
       cat(..., file = file, append = append)
+    }  } else {
+      cat_sink <- cat
     }
-    cat_sink("\n>--------------------<\n\n", as.character(Sys.time()))
-  }
+
+  cat_sink("\n>--------------------<\n\n", as.character(Sys.time()))
 
   # 2. Get total number of results ------------------------------------------
 
@@ -164,7 +166,7 @@ extract_annotated_articles_by_section <- function(search_string = "*",
       }
 
       # Random wait time as not to overwhelm the API
-      pause <- runif(1, 0.5, 2)
+      pause <- runif(1, 0.02, 0.2)
       cat_sink("\nPausing for", pause, "seconds.\n")
       Sys.sleep(pause)
     }

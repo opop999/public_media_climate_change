@@ -2,7 +2,7 @@
 
 ```{r include=FALSE}
   # Package names
-  packages <- c("dplyr", "readr", "purrr", "stringr", "tidyr", "arrow")
+  packages <- c("dplyr", "readr", "purrr", "stringr", "tidyr")
 
   # Install packages not yet installed
   installed_packages <- packages %in% rownames(installed.packages())
@@ -281,6 +281,21 @@ table(test$Name) %>% sort(decreasing = TRUE) %>% head(50) %>% as.data.frame() %>
 
 write.csv(test, "missing_articles_authors.csv")
 
+```
+
+6. Retrieve missing section information
+
+```{r}
+# Select only important columns from the missing_full_articles_df created in step 4
+missing_identifier <- missing_full_articles_df %>% 
+  select(Code, PublishDate, Title, history_id)
+
+saveRDS(missing_identifier, "data/data_validity/missing_identifier.rds")
+```
+
+```{r}
+# Run the script as a RStudio job
+rstudioapi::jobRunScript(path = "get_missing_annotated_rstudio_jobs.R", importEnv = TRUE)
 ```
 
 # Optional: Change chunk sizing and naming

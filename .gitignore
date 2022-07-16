@@ -45,6 +45,9 @@ vignettes/*.pdf
 ## Article full versions
 1.data_extraction/data/full_articles/*.rds
 
+## Article validity data workflow output
+1.data_extraction/data/data_validity/*.rds
+
 ## Article regex processed
 2.data_transformations/data/regex_processed/*.rds
 
