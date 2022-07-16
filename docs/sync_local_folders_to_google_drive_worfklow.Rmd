@@ -38,6 +38,10 @@ list_of_folders_to_synchronize <-
       local_folder_path = "../2.data_transformations/data/udpipe_processed/",
       remote_folder_path = "climate_change/datasets/2.processed_data/udpipe_processed/"
     ),
+    media_articles_processed_subcorpus = c(
+      local_folder_path = "../2.data_transformations/data/climate_sub_corpus/",
+      remote_folder_path = "climate_change/datasets/2.processed_data/climate_sub_corpus/"
+    ),
     media_articles_analyzed_ner = c(
       local_folder_path = "../4.data_analysis/named_entity_recognition/data/",
       remote_folder_path = "climate_change/datasets/4.analyzed_data/named_entity_recognition/"
@@ -49,7 +53,6 @@ list_of_folders_to_synchronize <-
   )
 
 synchronize_selected_folders(list_of_folders = list_of_folders_to_synchronize)
-
 
 ```
 

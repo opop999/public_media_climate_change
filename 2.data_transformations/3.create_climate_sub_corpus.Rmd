@@ -1,0 +1,62 @@
+---
+title: "Sub-corpus creation"
+---
+Load necessary packages
+```{r include=FALSE}
+# Package names
+packages <- c("dplyr", "stringr")
+
+# Install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+invisible(lapply(packages, library, character.only = TRUE))
+
+
+climate_regex_string <- "klima\\S*|antropocén|permafrost|nízkoemisn\\S+|uhlíkov\\S*|větrn\\S+|IPCC|UNFCCC|fosiln\\S+"
+
+path_to_input <- "data/udpipe_processed"
+
+```
+
+```{r}
+# Identify UPIPE-processed chunks of interest
+udpipe_chunks_path <- list.files(path = file.path(path_to_input),
+                              pattern = "*.rds",
+                              full.names = TRUE)
+
+# Define function, which loads every chunk and extracts all of the documents that 
+# match the regex search string
+get_climate_articles <- function(udpipe_chunk_path) {
+  
+  readRDS(udpipe_chunk_path) %>% 
+    filter(str_detect(str_to_lower(lemma, locale = "cs"), climate_regex_string)) %>% 
+    pull(doc_id) %>% 
+    unique()
+  
+}
+```
+
+```{r}
+# Iterate over the list of UDPIPE chunks
+# If on Linux, we use the parallelized version of lapply
+if (Sys.info()[['sysname']] == "Linux") {
+  
+library(parallel)
+
+climate_article_ids <- mclapply(udpipe_chunks_path, get_climate_articles,  mc.cores = detectCores() - 2) %>% unlist()
+
+} else {
+# If not Linux - non-parallelized lapply
+
+climate_article_ids <- lapply(udpipe_chunks_path, get_climate_articles) %>% unlist()
+
+}
+
+saveRDS(climate_article_ids, "data/climate_sub_corpus/climate_article_ids.rds")
+
+```
+
