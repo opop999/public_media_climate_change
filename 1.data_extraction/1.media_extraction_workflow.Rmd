@@ -293,10 +293,36 @@ missing_identifier <- missing_full_articles_df %>%
 saveRDS(missing_identifier, "data/data_validity/missing_identifier.rds")
 ```
 
+Step 1: retrieve annotations with key information for subsequent search (still without section info)
 ```{r}
 # Run the script as a RStudio job
 rstudioapi::jobRunScript(path = "get_missing_annotated_rstudio_jobs.R", importEnv = TRUE)
 ```
+
+Step 2: retrieve full article version with information from Step 1
+```{r}
+source("get_full_articles_individual_new_api.R")
+
+# # Create empty list to which we will append with every API call
+# additional_full_articles_list_new_api <- vector(mode = "list", length = nrow(annotations_of_missing_full_articles))
+# 
+# # Loop over the dataset with annotations of missing full articles
+# for (i in seq_len(nrow(annotations_of_missing_full_articles))) {
+#   additional_full_articles_list_new_api[[i]] <- extract_full_articles_individual_new_api(
+#     article_code = annotations_of_missing_full_articles$code[[i]],
+#     date_published = annotations_of_missing_full_articles$datePublished[[i]],
+#     search_history_id = annotations_of_missing_full_articles$searchHistoryId[[i]],
+#     newton_api_token = Sys.getenv("NEWTON_TOKEN"),
+#     log_path = "docs/"
+#   )
+#   Sys.sleep(runif(1, 0.1, 0.2))
+# 
+#   cat("\nArticle", i, "out of", nrow(annotations_of_missing_full_articles), "extracted.")
+# }
+
+```
+
+
 
 # Optional: Change chunk sizing and naming
 ```{r}
