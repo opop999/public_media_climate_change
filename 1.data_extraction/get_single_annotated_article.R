@@ -86,28 +86,48 @@ extract_annotated_article <- function(search_string,
         ))
       )
 
-      if (httr::status_code(result) == 500) {
-        cat_sink("\nWARNING: API call for article", doc_id, "failed with error code 500.")
+  if (httr::status_code(result) == 200 &
+      as.numeric(result$headers$`content-length`) >= 50) {
+    result <- result %>%
+      content(as = "text") %>%
+      fromJSON(flatten = TRUE) %>%
+      .[["articles"]] %>% # Remove columns that do not provide any useful information to our research or are duplicates
+      .[,!colnames(.) %in% c(
+        "language",
+        "isRead",
+        "isBookmarked",
+        "userQueryId",
+        "mediaType.code",
+        "mediaType.name"
+      )]
+    cat_sink("\nAPI call for article", doc_id, "executed.")
 
-        # Replace with empty dataset so bind_row at the end is successful
-        result <- tibble()
-      } else if (httr::status_code(result) == 200) {
-        result <- result %>%
-          content(as = "text") %>%
-          fromJSON(flatten = TRUE) %>%
-          .[["articles"]] %>% # Remove columns that do not provide any useful information to our research or are duplicates
-          .[, !colnames(.) %in% c(
-            "language",
-            "isRead",
-            "isBookmarked",
-            "userQueryId",
-            "mediaType.code",
-            "mediaType.name"
-          )]
+  } else if (httr::status_code(result) == 200 &
+             as.numeric(result$headers$`content-length`) < 50) {
 
-      } else {
-        cat_sink("\nWARNING: API call for article id", doc_id, "returned the following code: ", httr::status_code(result), ". Check the connection.")
-      }
+    cat_sink("\nWARNING: API call for article",
+             doc_id, "returned empty response.")
+
+    # Replace with empty dataset so bind_row at the end is successful
+    result <- tibble()
+
+  } else if (httr::status_code(result) == 500) {
+    cat_sink("\nWARNING: API call for article",
+             doc_id,
+             "failed with error code 500.")
+
+    # Replace with empty dataset so bind_row at the end is successful
+    result <- tibble()
+
+  } else {
+    cat_sink(
+      "\nWARNING: API call for article id",
+      doc_id,
+      "returned the following code: ",
+      httr::status_code(result),
+      ". Check the connection."
+    )
+  }
 
   return(result)
 
