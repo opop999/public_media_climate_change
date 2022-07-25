@@ -296,29 +296,51 @@ saveRDS(missing_identifier, "data/data_validity/missing_identifier.rds")
 Step 1: retrieve annotations with key information for subsequent search (still without section info)
 ```{r}
 # Run the script as a RStudio job
-rstudioapi::jobRunScript(path = "get_missing_annotated_rstudio_jobs.R", importEnv = TRUE)
+missing_identifier$Title <- gsub("[^äöüěščřžýáíéóúůďťňĎŇŤŠČŘŽÝÁÍÉÚŮĚÓa-zA-Z0-9]", " ", missing_identifier$Title)
+
+rstudioapi::jobRunScript(path = "rstudio_jobs_get_missing_annotated.R", importEnv = TRUE)
+```
+
+```{r}
+# Verify the data validity of the list, save as data frame
+missing_annotations_df <- readRDS("data/data_validity/final_missing_annotations_list.rds") %>%
+  bind_rows() %>% 
+  saveRDS("data/data_validity/final_missing_annotations_df.rds")
+
 ```
 
 Step 2: retrieve full article version with information from Step 1
 ```{r}
-source("get_full_articles_individual_new_api.R")
+missing_annotations_df <- readRDS("data/data_validity/final_missing_annotations_df.rds")
 
-# # Create empty list to which we will append with every API call
-# additional_full_articles_list_new_api <- vector(mode = "list", length = nrow(annotations_of_missing_full_articles))
-# 
-# # Loop over the dataset with annotations of missing full articles
-# for (i in seq_len(nrow(annotations_of_missing_full_articles))) {
-#   additional_full_articles_list_new_api[[i]] <- extract_full_articles_individual_new_api(
-#     article_code = annotations_of_missing_full_articles$code[[i]],
-#     date_published = annotations_of_missing_full_articles$datePublished[[i]],
-#     search_history_id = annotations_of_missing_full_articles$searchHistoryId[[i]],
-#     newton_api_token = Sys.getenv("NEWTON_TOKEN"),
-#     log_path = "docs/"
-#   )
-#   Sys.sleep(runif(1, 0.1, 0.2))
-# 
-#   cat("\nArticle", i, "out of", nrow(annotations_of_missing_full_articles), "extracted.")
-# }
+rstudioapi::jobRunScript(path = "rstudio_jobs_get_missing_annotated_individual.R", importEnv = TRUE)
+
+```
+
+
+```{r}
+# Bind the list to one dataframe, rename the list columns to be compatible with the full articles
+additional_full_articles_df <- bind_rows(additional_full_articles_list_new_api) %>%
+  mutate(SourceId = case_when(sourceName == "ČT 1" ~ 2971, sourceName == "ČT 24" ~ 1075),
+         Id = NA) %>% 
+  distinct(code, .keep_all = TRUE) %>%
+  transmute(
+    "Content" = content,
+    "Page" = page,
+    "SectionName" = sectionName,
+    "Score" = NA,
+     Id,
+     SourceId,
+    "SourceName" = sourceName,
+    "Code" = code,
+    "Author" = as.list(author),
+    "PublishDate" = datePublished,
+    "ImportDate" = importDate,
+    "Url" = detailUrl,
+    "Title" = title
+  )
+
+saveRDS(additional_full_articles_df, "data/full_articles/additional_full_articles_df.rds")
 
 ```
 

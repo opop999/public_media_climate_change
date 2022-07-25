@@ -87,7 +87,7 @@ extract_annotated_article <- function(search_string,
       )
 
   if (httr::status_code(result) == 200 &
-      as.numeric(result$headers$`content-length`) >= 50) {
+      as.numeric(result$headers$`content-length`) >= 300) {
     result <- result %>%
       content(as = "text") %>%
       fromJSON(flatten = TRUE) %>%
@@ -103,7 +103,7 @@ extract_annotated_article <- function(search_string,
     cat_sink("\nAPI call for article", doc_id, "executed.")
 
   } else if (httr::status_code(result) == 200 &
-             as.numeric(result$headers$`content-length`) < 50) {
+             as.numeric(result$headers$`content-length`) < 300) {
 
     cat_sink("\nWARNING: API call for article",
              doc_id, "returned empty response.")
