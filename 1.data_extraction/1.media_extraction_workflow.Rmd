@@ -175,11 +175,11 @@ saveRDS(
 4. Data Validity Check
 
 ```{r}
-# Load saved annotated dataset
-annotated_articles_df <- readRDS("data/annotated_articles/annotated_articles_by_section.rds")
+# Load annotations dataset by reading existing .rds chunks
+annotated_articles_df <- list.files(path = "data/annotated_articles/", pattern = ".rds", full.names = TRUE) %>% 
+        map_dfr(readRDS)
 
-
-# Load full articles dataset by reading smaller .rds chunks
+# Load full articles dataset by reading existing .rds chunks
 full_articles_df <- list.files(path = "data/full_articles/", pattern = ".rds", full.names = TRUE) %>% 
         map_dfr(readRDS)
 
@@ -288,15 +288,18 @@ write.csv(test, "missing_articles_authors.csv")
 ```{r}
 # Select only important columns from the missing_full_articles_df created in step 4
 missing_identifier <- missing_full_articles_df %>% 
-  select(Code, PublishDate, Title, history_id)
+  select(Code, PublishDate, Title, history_id, Content)
 
 saveRDS(missing_identifier, "data/data_validity/missing_identifier.rds")
 ```
 
 Step 1: retrieve annotations with key information for subsequent search (still without section info)
 ```{r}
+missing_identifier <- readRDS("data/data_validity/missing_identifier.rds") %>% 
+  mutate(Title = str_squish(gsub("[^äöüěščřžýáíéóúůďťňĎŇŤŠČŘŽÝÁÍÉÚŮĚÓa-zA-Z0-9]", " ", Title)),
+         Content = word(str_squish(gsub("[^äöüěščřžýáíéóúůďťňĎŇŤŠČŘŽÝÁÍÉÚŮĚÓa-zA-Z0-9]", " ", Content)), end = 10))
+
 # Run the script as a RStudio job
-missing_identifier$Title <- gsub("[^äöüěščřžýáíéóúůďťňĎŇŤŠČŘŽÝÁÍÉÚŮĚÓa-zA-Z0-9]", " ", missing_identifier$Title)
 
 rstudioapi::jobRunScript(path = "rstudio_jobs_get_missing_annotated.R", importEnv = TRUE)
 ```
@@ -319,28 +322,24 @@ rstudioapi::jobRunScript(path = "rstudio_jobs_get_missing_annotated_individual.R
 
 
 ```{r}
-# Bind the list to one dataframe, rename the list columns to be compatible with the full articles
-additional_full_articles_df <- bind_rows(additional_full_articles_list_new_api) %>%
-  mutate(SourceId = case_when(sourceName == "ČT 1" ~ 2971, sourceName == "ČT 24" ~ 1075),
-         Id = NA) %>% 
-  distinct(code, .keep_all = TRUE) %>%
-  transmute(
-    "Content" = content,
-    "Page" = page,
-    "SectionName" = sectionName,
-    "Score" = NA,
-     Id,
-     SourceId,
-    "SourceName" = sourceName,
-    "Code" = code,
-    "Author" = as.list(author),
-    "PublishDate" = datePublished,
-    "ImportDate" = importDate,
-    "Url" = detailUrl,
-    "Title" = title
-  )
+# Bind the list to one dataframe, rename the list columns to be compatible with the annotated articles
+additional_annotated_articles_df <- bind_rows(final_additional_full_articles) %>%
+  transmute(code,
+            title = gsub("<.*?>", "", title),
+            annotation = paste0(strtrim(gsub("<.*?>", "", content), 300), "..."),
+            sourceName,
+            author,
+            page,
+            datePublished,
+            importDate,
+            searchHistoryId = NA_integer_,
+            mediaType.id = 4L,
+            section = sectionName)
 
-saveRDS(additional_full_articles_df, "data/full_articles/additional_full_articles_df.rds")
+annotated_articles_df <- bind_rows(annotated_articles_df, additional_annotated_articles_df)
+
+split(annotated_articles_df, as.factor(format(as.Date(annotated_articles_df$datePublished), "%Y"))) %>% 
+  save_split_chunks(folder_path = "data/annotated_articles/")
 
 ```
 
@@ -350,29 +349,42 @@ saveRDS(additional_full_articles_df, "data/full_articles/additional_full_article
 ```{r}
 # Load all chunks into memory
 full_articles_df <- list.files(path = "data/full_articles/", pattern = ".rds", full.names = TRUE) %>% 
-        map_dfr(~ mutate(readRDS(.), Author = unlist(Author)))
+        map_dfr(~ mutate(readRDS(.)))
+
+# Load all chunks into memory
+annotated_articles_df <- list.files(path = "data/annotated_articles/", pattern = ".rds", full.names = TRUE) %>% 
+        map_dfr(~ mutate(readRDS(.)))
 
 ```
 
 ```{r}
-full_articles_split <- split(full_articles_df, as.factor(format(as.Date(full_articles_df$PublishDate), "%Y-%m")))
-
 # If Linux, we can parallelize. Alternatively, we can save to .feather files for better compatibility with non-R scripts
 # using write_feather function
 
-if (Sys.info()[['sysname']] == "Linux") {
-library(parallel)
-
-invisible(mclapply(names(full_articles_split), function(df) {
-  saveRDS(distinct(full_articles_split[[df]]), file = paste0("data/full_articles/", df, ".rds"))
-}, mc.cores = detectCores() - 1))
-
-} else {
-# If not Linux
-lapply(names(full_articles_split), function(df) {
-  saveRDS(distinct(full_articles_split[[df]]), file = paste0("data/full_articles/", df, ".rds"))
-})
+save_split_chunks <- function(list_of_chunks, folder_path) {
+  if (Sys.info()[['sysname']] == "Linux") {
+    library(parallel)
+    
+    invisible(mclapply(names(list_of_chunks), function(df) {
+      saveRDS(distinct(list_of_chunks[[df]]),
+              file = paste0(folder_path, df, ".rds"))
+    }, mc.cores = detectCores() - 1))
+    
+  } else {
+    # If not Linux
+    lapply(names(list_of_chunks), function(df) {
+      saveRDS(distinct(list_of_chunks[[df]]),
+              file = paste0(folder_path, df, ".rds"))
+    })
+  }
 }
-  
+
+split(full_articles_df, as.factor(format(as.Date(full_articles_df$PublishDate), "%Y-%m"))) %>% 
+    save_split_chunks(folder_path = "data/full_articles/")
+
+split(annotated_articles_df, as.factor(format(as.Date(annotated_articles_df$datePublished), "%Y"))) %>% 
+  save_split_chunks(folder_path = "data/annotated_articles/")
+
+
 ```
 
