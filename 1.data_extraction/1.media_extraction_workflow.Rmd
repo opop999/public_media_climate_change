@@ -258,7 +258,7 @@ additional_full_articles_df <- bind_rows(additional_full_articles_list_new_api) 
      SourceId,
     "SourceName" = sourceName,
     "Code" = code,
-    "Author" = as.list(author),
+    "Author" = author,
     "PublishDate" = datePublished,
     "ImportDate" = importDate,
     "Url" = detailUrl,
@@ -300,15 +300,20 @@ missing_identifier <- readRDS("data/data_validity/missing_identifier.rds") %>%
          Content = word(str_squish(gsub("[^äöüěščřžýáíéóúůďťňĎŇŤŠČŘŽÝÁÍÉÚŮĚÓa-zA-Z0-9]", " ", Content)), end = 10))
 
 # Run the script as a RStudio job
-
 rstudioapi::jobRunScript(path = "rstudio_jobs_get_missing_annotated.R", importEnv = TRUE)
 ```
 
 ```{r}
 # Verify the data validity of the list, save as data frame
-missing_annotations_df <- readRDS("data/data_validity/final_missing_annotations_list.rds") %>%
+readRDS("data/data_validity/final_missing_annotations_list.rds") %>%
   bind_rows() %>% 
   saveRDS("data/data_validity/final_missing_annotations_df.rds")
+
+for (i in seq_along(final_missing_annotations_list)) {
+  if (class(final_missing_annotations_list[[i]]) == "response") {
+    final_missing_annotations_list[[i]] <- data.frame()
+  }
+}
 
 ```
 
@@ -322,6 +327,8 @@ rstudioapi::jobRunScript(path = "rstudio_jobs_get_missing_annotated_individual.R
 
 
 ```{r}
+final_additional_full_articles <- readRDS("data/data_validity/final_additional_full_articles.rds")
+
 # Bind the list to one dataframe, rename the list columns to be compatible with the annotated articles
 additional_annotated_articles_df <- bind_rows(final_additional_full_articles) %>%
   transmute(code,
@@ -342,8 +349,6 @@ split(annotated_articles_df, as.factor(format(as.Date(annotated_articles_df$date
   save_split_chunks(folder_path = "data/annotated_articles/")
 
 ```
-
-
 
 # Optional: Change chunk sizing and naming
 ```{r}
