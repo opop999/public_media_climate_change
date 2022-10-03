@@ -88,7 +88,7 @@ saveRDS(dtm_less_sparse, "data/dtm_less_sparse.rds")
 ```
 
 ```{r}
-topics_n <- c(35,40,45,50)
+topics_n <- seq(10, 50, 5)
 
 lda_topic_modeling <- function(i) {
   
@@ -123,7 +123,7 @@ invisible(mclapply(topics_n, lda_topic_modeling, mc.cores = detectCores() - 1))
 
 ```{r}
 # The lower perplexity the better. 
-# 535 for 10 topic vs 394 for 30 topic
+# 535 for 10 topic vs 394 for 30 topic vs 334 for 50 topic.
 perplexity(dtm_less_sparse, topic_word_distribution = lda_model$topic_word_distribution, doc_topic_distribution = doc_topic_distribution)
 
 # Proportion of topics in the corpus vizualization
