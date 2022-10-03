@@ -5,7 +5,7 @@ title: "Topic modeling"
 ## Load necessary packages
 ```{r include=FALSE}
 # Package names
-packages <- c("dplyr", "parallel", "stringr", "text2map", "data.table", "dtplyr", "text2vec", "LDAvis", "jsonlite", "tidyr", "DT", "ggplot2")
+packages <- c("dplyr", "parallel", "stringr", "text2map", "data.table", "dtplyr", "text2vec", "LDAvis", "jsonlite", "tidyr", "DT", "ggplot2", "gistr", "tidytext")
 
 # Install packages not yet installed
 installed_packages <- packages %in% rownames(installed.packages())
@@ -30,8 +30,9 @@ process_df <- function(i) {
   
   readRDS(i) %>% 
     lazy_dt() %>% 
-    filter(upos %in% c("NOUN") & nchar(lemma) > 1) %>% # filter one letter words    
-    transmute(doc_id, lemma = tolower(str_replace_na(lemma, replacement = ""))) %>% 
+    filter(upos %in% c("NOUN")) %>%    
+    transmute(doc_id, lemma = gsub("[^ěščřžýáíéóúůďťňa-z ]", " ", tolower(str_replace_na(lemma, replacement = "")))) %>% 
+    filter(nchar(lemma) > 1) %>% # filter one letter words 
     group_by(doc_id) %>%
     summarize(text = str_squish(str_c(lemma, collapse = " "))) %>%
     ungroup() %>% 
@@ -54,13 +55,25 @@ combined_df <- mclapply(udpipe_chunks, process_df, mc.cores = detectCores() - 1)
 
 dtm_udpipe <- dtm_builder(data = combined_df, text = "text", doc_id = "doc_id")
 
+saveRDS(dtm_udpipe, "data/dtm_udpipe.rds")
+
+# Remove terms that are in  
+low_tf_idf <- dtm_udpipe %>%
+  dtm_melter %>%
+  bind_tf_idf(term, doc_id, freq) %>% 
+  group_by(term) %>%
+  summarize(tf_idf_mean = mean(tf_idf)) %>%
+  slice_min(tf_idf_mean, prop = 0.05) %>%
+  pull(term)
+
+
 # dtm_stats(dtm_udpipe)
 
 dtm_less_sparse <- dtm_stopper(dtm_udpipe,
-                               stop_list = stop_words_cs,
+                               stop_list = c(low_tf_idf, stop_words_cs, "moderátorka", "moderátor", "redaktorka", "redaktor"),
                                stop_hapax = TRUE,
                                stop_null = TRUE,
-                               stop_docprop = c(0.01, 0.2),
+                               stop_docprop = c(0.005, 0.99),
                                # stop_docfreq = c(floor(nrow(dtm_udpipe) * 0.01), ceiling(nrow(dtm_udpipe) * 0.5))
                                )
 
@@ -70,31 +83,47 @@ colnames(dtm_less_sparse)[grep(x = colnames(dtm_less_sparse), pattern = "klim.*"
 
 dtm_stats(dtm_less_sparse)
 
-saveRDS(dtm_less_sparse, "data/dtm_less_sparse_adj.rds")
+saveRDS(dtm_less_sparse, "data/dtm_less_sparse.rds")
 
 ```
 
 ```{r}
-lda_model <- LDA$new(n_topics = 20L)
+topics_n <- c(35,40,45,50)
 
-set.seed(3859L)
-doc_topic_distribution <- lda_model$fit_transform(
+lda_topic_modeling <- function(i) {
+  
+    lda_model <- LDA$new(n_topics = i)
+
+    set.seed(3859L)
+
+    doc_topic_distribution <- lda_model$fit_transform(
     x = dtm_less_sparse,
     n_iter = 1000,
     convergence_tol = 0.001,
-    n_check_convergence = 10
+    n_check_convergence = 10,
+    progressbar = FALSE
   )
+    
+    saveRDS(doc_topic_distribution, paste0("data/models/doc_topic_distribution_", i, ".rds"))
 
-saveRDS(doc_topic_distribution, "data/doc_topic_distribution.rds")
+    saveRDS(lda_model, paste0("data/models/lda_model_", i, ".rds"))
+    
+    lda_model$plot(as.gist = TRUE, open.browser = FALSE, description = paste("Climate LDA topic model with", i, "topics"))
+    
+    rm(doc_topic_distribution, lda_model)
+   
+    gc()
+  
+}
 
-saveRDS(lda_model, "data/lda_model.rds")
+invisible(mclapply(topics_n, lda_topic_modeling, mc.cores = detectCores() - 1))
 
 ```
 
 
 ```{r}
 # The lower perplexity the better. 
-
+# 535 for 10 topic vs 394 for 30 topic
 perplexity(dtm_less_sparse, topic_word_distribution = lda_model$topic_word_distribution, doc_topic_distribution = doc_topic_distribution)
 
 # Proportion of topics in the corpus vizualization
@@ -112,9 +141,9 @@ lda_model$get_top_words(lambda = 1) %>% as.data.frame() %>% setNames(paste0("top
 lda_model$plot(out.dir = "plot", as.gist = TRUE)
 
                            
-serVis("plot/lda.json", as.gist = TRUE, filename = "topic_20")
-
-gist_create(file.path(out.dir, list.files(out.dir))), filename = "topic_20"))
+# serVis("plot/lda.json", as.gist = TRUE, filename = "topic_20")
+# 
+# gist_create(file.path(out.dir, list.files(out.dir))), filename = "topic_20"))
 
 
 barplot(
@@ -133,5 +162,11 @@ barplot(
 #                            mc.cores = parallel::detectCores() - 1)
 # FindTopicsNumber_plot(result)
 
+```
+
+```{r}
+# Optional: remove the lowest 5% tf-idf scores https://arxiv.org/pdf/1701.03227.pdf
+dtm_tfidf[,dtm_tfidf[,colMeans(dtm_tfidf, na.rm = TRUE) > quantile(colMeans(dtm_tfidf, na.rm = TRUE), probs = 0.05, names = FALSE)]]
+    
 ```
 
