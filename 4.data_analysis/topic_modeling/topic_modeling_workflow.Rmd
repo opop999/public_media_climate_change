@@ -16,10 +16,6 @@ if (any(installed_packages == FALSE)) {
 # Packages loading
 invisible(lapply(packages, library, character.only = TRUE))
 
-stop_words_cs <- c(fromJSON("data/irene_stopwords.json"),
-                   fromJSON("data/stopwords_cs.json")) %>%
-                   unique()
-
 ```
 
 
@@ -30,7 +26,8 @@ process_df <- function(i) {
   
   readRDS(i) %>% 
     lazy_dt() %>% 
-    filter(upos %in% c("NOUN")) %>%    
+    filter(upos %in% c("NOUN", "ADJ", "PROPN")) %>%
+    filter(!grepl("NameType=Giv", feats, fixed = TRUE)) %>%
     transmute(doc_id, lemma = gsub("[^ěščřžýáíéóúůďťňa-z ]", " ", tolower(str_replace_na(lemma, replacement = "")))) %>% 
     filter(nchar(lemma) > 1) %>% # filter one letter words 
     group_by(doc_id) %>%
@@ -42,7 +39,6 @@ process_df <- function(i) {
 
 combined_df <- mclapply(udpipe_chunks, process_df, mc.cores = detectCores() - 1) %>% bind_rows()
 
-
 # combined_df <- combined_df %>% 
 #   group_by(doc_id) %>%
 #   summarize(text = str_squish(str_c(lemma, collapse = " "))) %>%
@@ -51,26 +47,52 @@ combined_df <- mclapply(udpipe_chunks, process_df, mc.cores = detectCores() - 1)
 
 ```
 
-```{r}
 
+```{r}
+# To create a stop list of journalists of Czech television, we try to extract them from the full text.
+full_chunks_paths <- list.files(path = "../../1.data_extraction/data/full_articles", pattern = "*.rds", full.names = TRUE)
+
+get_tv_presenters <- function(full_chunk_path) {
+  readRDS(full_chunk_path) %>% 
+    transmute(presenter_name = tolower(word(gsub("<.*>", "", str_extract(Content, "^([^,]+)")), start = 2L, end = 2L))) %>% 
+    filter(!is.na(presenter_name) & !grepl("-", presenter_name) & nchar(presenter_name) >= 3) %>% 
+    pull(presenter_name)
+}
+
+czech_tv_presenters <- mclapply(full_chunks_paths, get_tv_presenters,  mc.cores = detectCores() - 1) %>% unlist() %>% table() %>% sort(decreasing = TRUE) %>% head(100) %>% names()
+
+saveRDS(czech_tv_presenters, "data/czech_tv_presenters.rds")
+
+```
+
+
+Pruning of the vocabulary
+```{r}
 dtm_udpipe <- dtm_builder(data = combined_df, text = "text", doc_id = "doc_id")
 
-saveRDS(dtm_udpipe, "data/dtm_udpipe.rds")
+saveRDS(dtm_udpipe, "data/dtm_udpipe_adj_propn.rds")
+
+
+# Load stop word lists
+stop_words_cs <- fromJSON("data/stopwords_cs.json")
+stop_words_czech_television <- c(readRDS("data/czech_tv_presenters.rds"), "moderátorka", "moderátor", "redaktorka", "redaktor")
+
 
 # Remove terms that are in  
-low_tf_idf <- dtm_udpipe %>%
-  dtm_melter %>%
-  bind_tf_idf(term, doc_id, freq) %>% 
-  group_by(term) %>%
-  summarize(tf_idf_mean = mean(tf_idf)) %>%
-  slice_min(tf_idf_mean, prop = 0.05) %>%
-  pull(term)
+# low_tf_idf <- dtm_udpipe %>%
+#   dtm_melter %>%
+#   bind_tf_idf(term, doc_id, freq) %>% 
+#   group_by(term) %>%
+#   summarize(tf_idf_mean = mean(tf_idf)) %>%
+#   slice_min(tf_idf_mean, prop = 0.05) %>%
+#   pull(term)
 
 
 # dtm_stats(dtm_udpipe)
 
+
 dtm_less_sparse <- dtm_stopper(dtm_udpipe,
-                               stop_list = c(low_tf_idf, stop_words_cs, "moderátorka", "moderátor", "redaktorka", "redaktor"),
+                               stop_list = c(stop_words_cs, stop_words_czech_television),
                                stop_hapax = TRUE,
                                stop_null = TRUE,
                                stop_docprop = c(0.005, 0.99),
@@ -83,7 +105,7 @@ colnames(dtm_less_sparse)[grep(x = colnames(dtm_less_sparse), pattern = "klim.*"
 
 dtm_stats(dtm_less_sparse)
 
-saveRDS(dtm_less_sparse, "data/dtm_less_sparse.rds")
+saveRDS(dtm_less_sparse, "data/dtm_less_sparse_adj_propn.rds")
 
 ```
 
@@ -104,11 +126,11 @@ lda_topic_modeling <- function(i) {
     progressbar = FALSE
   )
     
-    saveRDS(doc_topic_distribution, paste0("data/models/doc_topic_distribution_", i, ".rds"))
+    saveRDS(doc_topic_distribution, paste0("data/models/doc_topic_distribution_adj_propn", i, ".rds"))
 
-    saveRDS(lda_model, paste0("data/models/lda_model_", i, ".rds"))
+    saveRDS(lda_model, paste0("data/models/lda_model_adj_propn", i, ".rds"))
     
-    lda_model$plot(as.gist = TRUE, open.browser = FALSE, description = paste("Climate LDA topic model with", i, "topics"))
+    lda_model$plot(as.gist = TRUE, open.browser = FALSE, description = paste("Climate LDA topic model with", i, "topics (with adjectives)"))
     
     rm(doc_topic_distribution, lda_model)
    
@@ -166,7 +188,32 @@ barplot(
 
 ```{r}
 # Optional: remove the lowest 5% tf-idf scores https://arxiv.org/pdf/1701.03227.pdf
-dtm_tfidf[,dtm_tfidf[,colMeans(dtm_tfidf, na.rm = TRUE) > quantile(colMeans(dtm_tfidf, na.rm = TRUE), probs = 0.05, names = FALSE)]]
+
+tf_idf_model = TfIdf$new()
+
+dtm_tfidf = fit_transform(dtm_less_sparse, tf_idf_model)
+
+dtm_tfidf[,dtm_tfidf[,colMeans(dtm_tfidf, na.rm = TRUE) > quantile(colMeans(dtm_tfidf , na.rm = TRUE), probs = 0.05, names = FALSE)]]
     
+```
+
+# https://github.com/zdebruine/RcppML
+```{r}
+# DEVEL version devtools::install_github("zdebruine/RcppML")   
+library(RcppML)
+model_nfm <- nmf(dtm_tfidf, k = 10, seed = 3859L, maxit = 1000, tol = 0.001)
+str(model_nfm)
+
+topic_word_distribution_nfm <- predict(model_nfm, dtm_tfidf)
+
+topic_word_distribution_nfm[9,] %>% sort(decreasing = TRUE) %>% head(20)
+
+# Calculate mean squared error for an NMF model
+evaluate(model_nfm, dtm_less_sparse)
+```
+
+```{r}
+json <- createJSON(model_nfm$h, model_nfm$w, vocab = colnames(model_nfm$h))
+
 ```
 
