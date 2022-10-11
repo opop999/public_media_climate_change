@@ -189,9 +189,7 @@ barplot(
 ```{r}
 # Optional: remove the lowest 5% tf-idf scores https://arxiv.org/pdf/1701.03227.pdf
 
-# tf_idf_model = TfIdf$new()
-# 
-# dtm_tfidf = fit_transform(dtm_less_sparse, tf_idf_model)
+
 
 # dtm_tfidf[,dtm_tfidf[,colMeans(dtm_tfidf, na.rm = TRUE) > quantile(colMeans(dtm_tfidf , na.rm = TRUE), probs = 0.05, names = FALSE)]]
     
@@ -241,7 +239,7 @@ plot_nmf <-
         vocab = dimnames(model@h)[[2]],
         term.frequency = colSums(dtm),
         lambda.step = 0.1,
-        reorder.topics = FALSE,
+        reorder.topics = TRUE,
         mds.method = jsPCA_robust
       )
       
@@ -256,22 +254,26 @@ plot_nmf <-
 ```{r}
 topics_n <- seq(10, 50, 5)
 
+tf_idf_model <- TfIdf$new()
+
+dtm_tfidf <- fit_transform(dtm_less_sparse, tf_idf_model)
+
 nmf_topic_modeling <- function(i) {
   
-    model_nmf <- nmf(dtm_less_sparse, k = i, seed = 3859L, maxit = 1000, tol = 0.001)
-    topic_word_distribution <- predict(model_nmf, dtm_less_sparse)
+    model_nmf <- nmf(dtm_tfidf, k = i, seed = 3859L, maxit = 1000, tol = 0.001)
+    topic_word_distribution <- predict(model_nmf, dtm_tfidf)
     
     saveRDS(topic_word_distribution, paste0("data/models/topic_word_distribution_adj_propn_", i, ".rds"))
     saveRDS(model_nmf, paste0("data/models/nmf_model_adj_propn_", i, ".rds"))
     
     plot_nmf(
     model = model_nmf,
-    dtm = dtm_less_sparse,
+    dtm = dtm_tfidf,
     topic_word_distribution = topic_word_distribution,
     as.gist = TRUE,
     open.browser = FALSE,
     browse = FALSE,
-    description = paste("Climate NMF topic model with", i, "topics (with adjectives)")
+    description = paste("Climate NMF topic model with", i, "topics (with adjectives), TF-IDF adjustment.")
   )
     
     rm(topic_word_distribution, model_nmf)
@@ -282,7 +284,6 @@ nmf_topic_modeling <- function(i) {
 invisible(lapply(topics_n, nmf_topic_modeling))
 
 ```
-
 
 Optional: subset by climate sub-corpus
 ```{r}
@@ -320,8 +321,11 @@ colSums(climate_dtm)["stát"]
 
 # NFM
 
-climate_model_nmf <- nmf(climate_dtm, k = 20, seed = 3859L, maxit = 1000, tol = 0.001)
-topic_word_distribution <- predict(climate_model_nmf, climate_dtm)
+tf_idf_model <- TfIdf$new()
+climate_dtm_tfidf <- fit_transform(dtm_less_sparse, tf_idf_model)
+
+climate_model_nmf <- nmf(climate_dtm_tfidf, k = 20, seed = 3859L, maxit = 1000, tol = 0.001)
+topic_word_distribution <- predict(climate_model_nmf, climate_dtm_tfidf)
 
     
 json_nmf <- createJSON(
@@ -345,4 +349,5 @@ mds_data <- as_tibble(json_obj$mdsDat) # can also use a data.frame
 ggplot(mds_data, aes(x, y)) + geom_point()
 
 ```
+
 
