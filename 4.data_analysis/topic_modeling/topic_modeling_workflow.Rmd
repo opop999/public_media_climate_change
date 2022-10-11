@@ -5,7 +5,7 @@ title: "Topic modeling"
 ## Load necessary packages
 ```{r include=FALSE}
 # Package names
-packages <- c("dplyr", "parallel", "stringr", "text2map", "data.table", "dtplyr", "text2vec", "LDAvis", "jsonlite", "tidyr", "DT", "ggplot2", "gistr", "tidytext")
+packages <- c("dplyr", "parallel", "stringr", "text2map", "data.table", "dtplyr", "text2vec", "LDAvis", "jsonlite", "tidyr", "DT", "ggplot2", "gistr", "tidytext", "RcppML")
 
 # Install packages not yet installed
 installed_packages <- packages %in% rownames(installed.packages())
@@ -130,7 +130,7 @@ lda_topic_modeling <- function(i) {
 
     saveRDS(lda_model, paste0("data/models/lda_model_adj_propn", i, ".rds"))
     
-    lda_model$plot(as.gist = TRUE, open.browser = FALSE, description = paste("Climate LDA topic model with", i, "topics (with adjectives)"))
+    lda_model$plot(as.gist = TRUE, open.browser = FALSE, browse = FALSE, description = paste("Climate LDA topic model with", i, "topics (with adjectives)"))
     
     rm(doc_topic_distribution, lda_model)
    
@@ -189,31 +189,160 @@ barplot(
 ```{r}
 # Optional: remove the lowest 5% tf-idf scores https://arxiv.org/pdf/1701.03227.pdf
 
-tf_idf_model = TfIdf$new()
+# tf_idf_model = TfIdf$new()
+# 
+# dtm_tfidf = fit_transform(dtm_less_sparse, tf_idf_model)
 
-dtm_tfidf = fit_transform(dtm_less_sparse, tf_idf_model)
-
-dtm_tfidf[,dtm_tfidf[,colMeans(dtm_tfidf, na.rm = TRUE) > quantile(colMeans(dtm_tfidf , na.rm = TRUE), probs = 0.05, names = FALSE)]]
+# dtm_tfidf[,dtm_tfidf[,colMeans(dtm_tfidf, na.rm = TRUE) > quantile(colMeans(dtm_tfidf , na.rm = TRUE), probs = 0.05, names = FALSE)]]
     
 ```
 
 # https://github.com/zdebruine/RcppML
 ```{r}
 # DEVEL version devtools::install_github("zdebruine/RcppML")   
-library(RcppML)
-model_nfm <- nmf(dtm_tfidf, k = 10, seed = 3859L, maxit = 1000, tol = 0.001)
-str(model_nfm)
+# 
 
-topic_word_distribution_nfm <- predict(model_nfm, dtm_tfidf)
-
-topic_word_distribution_nfm[9,] %>% sort(decreasing = TRUE) %>% head(20)
+# topic_word_distribution_nfm[1,] %>% sort(decreasing = TRUE) %>% head(20)
 
 # Calculate mean squared error for an NMF model
-evaluate(model_nfm, dtm_less_sparse)
+# evaluate(model_nfm, dtm_less_sparse)
+
+# Function to plot NMF Model
+plot_nmf <-
+  function(model, dtm, topic_word_distribution = NULL, ...) {
+    if ("LDAvis" %in% rownames(installed.packages())) {
+      if (is.null(topic_word_distribution) |
+          !is.matrix(topic_word_distribution)) {
+        topic_word_distribution <- predict(model, dtm)
+      }
+      
+      # FUN to normalize matrix
+      norm_matrix <- function(m, norm = c("l1", "l2", "none")) {
+        stopifnot(is(m, "matrix") || is(m, "sparseMatrix"))
+        norm = match.arg(norm)
+        if (norm == "none")
+          return(m)
+        norm_vec = switch(norm,
+                          l1 = 1 / rowSums(m),
+                          l2 = 1 / sqrt(rowSums(m ^ 2)))
+        norm_vec[is.infinite(norm_vec)] = 0
+        if (is(m, "sparseMatrix"))
+          Diagonal(x = norm_vec) %*% m
+        else
+          m * norm_vec
+      }
+      
+      
+      # Viz
+      json <- createJSON(
+        phi = norm_matrix(topic_word_distribution, "l1"),
+        theta = norm_matrix(model@w, "l1"),
+        doc.length	= rowSums(dtm),
+        vocab = dimnames(model@h)[[2]],
+        term.frequency = colSums(dtm),
+        lambda.step = 0.1,
+        reorder.topics = FALSE,
+        mds.method = jsPCA_robust
+      )
+      
+      LDAvis::serVis(json, ...)
+      
+    }
+    
+  }
 ```
 
+
 ```{r}
-json <- createJSON(model_nfm$h, model_nfm$w, vocab = colnames(model_nfm$h))
+topics_n <- seq(10, 50, 5)
+
+nmf_topic_modeling <- function(i) {
+  
+    model_nmf <- nmf(dtm_less_sparse, k = i, seed = 3859L, maxit = 1000, tol = 0.001)
+    topic_word_distribution <- predict(model_nmf, dtm_less_sparse)
+    
+    saveRDS(topic_word_distribution, paste0("data/models/topic_word_distribution_adj_propn_", i, ".rds"))
+    saveRDS(model_nmf, paste0("data/models/nmf_model_adj_propn_", i, ".rds"))
+    
+    plot_nmf(
+    model = model_nmf,
+    dtm = dtm_less_sparse,
+    topic_word_distribution = topic_word_distribution,
+    as.gist = TRUE,
+    open.browser = FALSE,
+    browse = FALSE,
+    description = paste("Climate NMF topic model with", i, "topics (with adjectives)")
+  )
+    
+    rm(topic_word_distribution, model_nmf)
+    gc()
+  
+}
+
+invisible(lapply(topics_n, nmf_topic_modeling))
+
+```
+
+
+Optional: subset by climate sub-corpus
+```{r}
+climate_doc_id <- readRDS("../../2.data_transformations/data/climate_sub_corpus/climate_article_ids.rds")
+
+climate_df <- combined_df[combined_df$doc_id %in% climate_doc_id,]
+
+climate_dtm <-
+  dtm_builder(data = climate_df,
+              text = "text",
+              doc_id = "doc_id") %>%
+  dtm_stopper(
+    stop_list = c(stop_words_cs, stop_words_czech_television),
+    stop_hapax = TRUE,
+    stop_null = TRUE,
+    stop_docprop = c(0.005, 0.99)
+  )
+
+# LDA
+    climate_lda_model <- LDA$new(n_topics = 20)
+
+    set.seed(3859L)
+
+    doc_topic_distribution <- climate_lda_model$fit_transform(
+    x = climate_dtm,
+    n_iter = 1000,
+    convergence_tol = 0.001,
+    n_check_convergence = 10,
+    progressbar = FALSE
+  )
+
+   climate_lda_model$plot(reorder.topics = TRUE) 
+
+colSums(climate_dtm)["stát"]   
+
+# NFM
+
+climate_model_nmf <- nmf(climate_dtm, k = 20, seed = 3859L, maxit = 1000, tol = 0.001)
+topic_word_distribution <- predict(climate_model_nmf, climate_dtm)
+
+    
+json_nmf <- createJSON(
+        phi = norm_matrix(topic_word_distribution, "l1"),
+        theta = norm_matrix(climate_model_nmf@w, "l1"),
+        doc.length	= rowSums(climate_dtm),
+        vocab = dimnames(climate_model_nmf@h)[[2]],
+        term.frequency = colSums(climate_dtm),
+        lambda.step = 0.1,
+        reorder.topics = TRUE,
+        mds.method = jsPCA_robust
+      ) 
+
+
+LDAvis::serVis(json_nmf)
+
+
+# Optionally use ggplot to plot the intertopic distance
+json_obj <- jsonlite::fromJSON(json_nmf) 
+mds_data <- as_tibble(json_obj$mdsDat) # can also use a data.frame
+ggplot(mds_data, aes(x, y)) + geom_point()
 
 ```
 
