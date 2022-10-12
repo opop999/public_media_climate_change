@@ -1,0 +1,66 @@
+```{r}
+# Package names
+packages <-
+  c(
+    "dplyr",
+    "text2vec",
+    "parallel",
+    "text2map"
+  )
+
+# Install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+invisible(lapply(packages, library, character.only = TRUE))
+
+```
+
+```{r}
+dtm_less_sparse <- readRDS("../topic_modeling/data/dtm_less_sparse.rds") 
+tf_idf_model <- TfIdf$new()
+dtm_tfidf <- fit_transform(dtm_less_sparse, tf_idf_model)
+rm(dtm_less_sparse)
+gc()
+```
+
+
+```{r}
+top_words_corpus <- colSums(dtm_tfidf) %>% sort(decreasing = TRUE)
+
+# Climate is a term with 1523th highest value of TF-IDF (out of 1861 terms)
+which(names(top_words_corpus) == "klima")
+
+
+top_word_doc <- vector(mode = "character", length = nrow(dtm_tfidf))
+
+
+# SLOW
+for (i in seq_len(nrow(dtm_tfidf))) {
+  top_word_doc[i] <- colnames(dtm_tfidf)[which.max(dtm_tfidf[i,])]
+  print(i)
+}
+
+# Fast
+index <- seq_len(nrow(dtm_tfidf))
+index_chunks <- split(index, ceiling(seq_along(index)/100000))
+top_word_doc <- vector(mode = "list", length = length(index_chunks))
+
+for (i in seq_along(index_chunks)) {
+  
+  top_word_doc[[i]] <- colnames(dtm_tfidf)[max.col(dtm_tfidf[index_chunks[[i]],])]
+  print(i)
+}
+
+top_words <- top_word_doc %>% unlist %>% table() %>% sort(decreasing = TRUE) 
+
+# Climate as the 662th most frequent keyword on document basis
+
+which(names(top_words) == "klima")
+
+
+```
+
