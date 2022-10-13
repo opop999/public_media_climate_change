@@ -1,66 +1,201 @@
-```{r}
+# This workflow aims to calculate TF-IDF scores for the corpus in order to determine KWs.
+
+```{r include=FALSE}
 # Package names
-packages <-
+packages_cran <-
   c(
     "dplyr",
     "text2vec",
-    "parallel",
-    "text2map"
+    "ggplot2"
   )
+
+packages_gh <-
+  c(
+    "bbplot"
+  )
+
 
 # Install packages not yet installed
 installed_packages <- packages %in% rownames(installed.packages())
 if (any(installed_packages == FALSE)) {
-  install.packages(packages[!installed_packages])
+  install.packages(packages_cran[!installed_packages])
+  devtools::install_github(packages_gh[!installed_packages])
 }
 
 # Packages loading
 invisible(lapply(packages, library, character.only = TRUE))
-
 ```
 
 ```{r}
-dtm_less_sparse <- readRDS("../topic_modeling/data/dtm_less_sparse.rds") 
+# Load previously created Document-Term-Matrix
+dtm_less_sparse <- readRDS("../topic_modeling/data/dtm_less_sparse_adj_propn.rds")
+
+# Apply TF-IDF weights
 tf_idf_model <- TfIdf$new()
 dtm_tfidf <- fit_transform(dtm_less_sparse, tf_idf_model)
-rm(dtm_less_sparse)
-gc()
 ```
 
-
 ```{r}
-top_words_corpus <- colSums(dtm_tfidf) %>% sort(decreasing = TRUE)
+top_words <- vector(mode = "list", length = 3L) %>% setNames(c("counts", "tfidf_corpus", "tfidf_per_doc"))
 
-# Climate is a term with 1523th highest value of TF-IDF (out of 1861 terms)
-which(names(top_words_corpus) == "klima")
+# Get simple counts of selected terms
+top_words[["counts"]] <- colSums(dtm_less_sparse) %>% sort(decreasing = TRUE)
 
+# Get words with highest TF-IDF values in the entire corpus
+top_words[["tfidf_corpus"]] <- colSums(dtm_tfidf) %>% sort(decreasing = TRUE)
 
-top_word_doc <- vector(mode = "character", length = nrow(dtm_tfidf))
-
-
-# SLOW
-for (i in seq_len(nrow(dtm_tfidf))) {
-  top_word_doc[i] <- colnames(dtm_tfidf)[which.max(dtm_tfidf[i,])]
-  print(i)
-}
-
-# Fast
-index <- seq_len(nrow(dtm_tfidf))
-index_chunks <- split(index, ceiling(seq_along(index)/100000))
+# Get word with highest TF-IDF value per each of the documents
+# Split the calculation to set of rows to prevent running out of memory
+chunk_size <- 50000L
+index_rows <- seq_len(nrow(dtm_tfidf))
+index_chunks <- split(index_rows, ceiling(seq_along(index_rows) / chunk_size))
 top_word_doc <- vector(mode = "list", length = length(index_chunks))
 
 for (i in seq_along(index_chunks)) {
-  
-  top_word_doc[[i]] <- colnames(dtm_tfidf)[max.col(dtm_tfidf[index_chunks[[i]],])]
+  top_word_doc[[i]] <- colnames(dtm_tfidf)[max.col(dtm_tfidf[index_chunks[[i]], ])]
   print(i)
 }
 
-top_words <- top_word_doc %>% unlist %>% table() %>% sort(decreasing = TRUE) 
+top_words[["tfidf_per_doc"]] <- top_word_doc %>%
+  unlist() %>%
+  table() %>%
+  sort(decreasing = TRUE) %>%
+  {
+    setNames(as.numeric(.), names(.))
+  }
 
-# Climate as the 662th most frequent keyword on document basis
-
-which(names(top_words) == "klima")
-
-
+# Save rankings
+saveRDS(top_words, "data/top_words.rds")
 ```
 
+
+```{r}
+# Get print of detailed ranking for terms of interest
+
+terms_of_interest <- c("klimatický", "klima")
+
+paste0(
+  "The term '",
+  terms_of_interest,
+  "' appears ",
+  top_words[["counts"]][terms_of_interest],
+  " times in the corpus. Rank ",
+  which(names(top_words[["counts"]]) %in% terms_of_interest),
+  " out of ",
+  length(top_words[["counts"]]),
+  "."
+)
+
+paste0(
+  "The term '",
+  terms_of_interest,
+  "' ranks ",
+  which(names(top_words[["tfidf_corpus"]]) %in% terms_of_interest),
+  " out of ",
+  length(top_words[["tfidf_corpus"]]), " based on TF-IDF."
+)
+
+paste0(
+  "The term '",
+  terms_of_interest,
+  "' is a main key word of a document ",
+  top_words[["tfidf_per_doc"]][terms_of_interest],
+  " times in the corpus. Ranked ",
+  which(names(top_words[["tfidf_per_doc"]]) %in% terms_of_interest),
+  " out of ",
+  length(top_words[["tfidf_per_doc"]])
+)
+```
+
+```{r}
+plot_counts <- top_words[["counts"]] %>%
+  data.frame(
+    terms = reorder(as.factor(tools::toTitleCase(names(.))), .),
+    counts = .,
+    row.names = NULL
+  ) %>%
+  slice_max(counts, n = 30) %>%
+  ggplot(aes(x = terms, y = counts / 1000)) +
+  geom_col(fill = "#1380A1") +
+  coord_flip() +
+  ylab(element_blank()) +
+  xlab(element_blank()) +
+  scale_y_continuous(
+    breaks = seq(0, 5000, 100),
+    labels = seq(0, 5000, 100)
+  ) +
+  labs(
+    title = "Decade of Czech Television news",
+    subtitle = "Most frequent lemma in thousands"
+  ) +
+  bbc_style() +
+  theme(
+    panel.grid.major.x = element_line(color = "#cbcbcb"),
+    panel.grid.major.y = element_blank(),
+    axis.text = element_text(margin = margin(t = 14, b = 10))
+  )
+
+finalise_plot(plot_counts, source_name = "Source: Newton Media Archive, January 2012-April 2022. N=531,592.", save_filepath = "visuals/plot_counts.png", height_pixels = 850)
+```
+
+```{r}
+plot_tfidf_corpus <- top_words[["tfidf_corpus"]] %>%
+  data.frame(
+    terms = reorder(as.factor(tools::toTitleCase(names(.))), .),
+    score = .,
+    row.names = NULL
+  ) %>%
+  slice_max(score, n = 30) %>%
+  ggplot(aes(x = terms, y = score)) +
+  geom_col(fill = "#990000") +
+  coord_flip() +
+  ylab(element_blank()) +
+  xlab(element_blank()) +
+  scale_y_continuous(
+    breaks = seq(0, 10000, 1000),
+    labels = seq(0, 10000, 1000)
+  ) +
+  labs(
+    title = "Decade of Czech Television news",
+    subtitle = "Key Lemmata for the entire korpus (sum of TF-IDF)"
+  ) +
+  bbc_style() +
+  theme(
+    panel.grid.major.x = element_line(color = "#cbcbcb"),
+    panel.grid.major.y = element_blank(),
+    axis.text = element_text(margin = margin(t = 14, b = 10))
+  )
+
+finalise_plot(plot_tfidf_corpus, source_name = "Source: Newton Media Archive, January 2012-April 2022. N=531,592.", save_filepath = "visuals/plot_tfidf_corpus.png", height_pixels = 850)
+```
+
+```{r}
+plot_tfidf_per_doc <- top_words[["tfidf_per_doc"]] %>%
+  data.frame(
+    terms = reorder(as.factor(tools::toTitleCase(names(.))), .),
+    count = .,
+    row.names = NULL
+  ) %>%
+  slice_max(count, n = 30) %>%
+  ggplot(aes(x = terms, y = count)) +
+  geom_col(fill = "#588300") +
+  coord_flip() +
+  ylab(element_blank()) +
+  xlab(element_blank()) +
+  scale_y_continuous(
+    breaks = seq(0, 3000, 1000),
+    labels = seq(0, 3000, 1000)
+  ) +
+  labs(
+    title = "Decade of Czech Television news",
+    subtitle = "Most common document-level Key Lemma (based on TF-IDF)"
+  ) +
+  bbc_style() +
+  theme(
+    panel.grid.major.x = element_line(color = "#cbcbcb"),
+    panel.grid.major.y = element_blank(),
+    axis.text = element_text(margin = margin(t = 14, b = 10))
+  )
+
+finalise_plot(plot_tfidf_per_doc, source_name = "Source: Newton Media Archive, January 2012-April 2022. N=531,592.", save_filepath = "visuals/plot_tfidf_per_doc.png", height_pixels = 850)
+```

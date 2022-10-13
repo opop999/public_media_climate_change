@@ -5,7 +5,22 @@ title: "Named Entity Recognition of regex-cleaned chunks with NAMETAG model (via
 ## Load necessary packages
 ```{r include=FALSE}
 # Package names
-packages <- c("dplyr")
+packages <-
+  c(
+    "dplyr",
+    "stringr",
+    "purrr",
+    "tidyr",
+    "tidytext",
+    "jsonlite",
+    "ggplot2",
+    "data.table",
+    "plotly",
+    "forcats",
+    "parallel",
+    "dtplyr",
+    "udpipe"
+  )
 
 # Install packages not yet installed
 installed_packages <- packages %in% rownames(installed.packages())
@@ -42,5 +57,166 @@ all_chunks_path_ner <- file.path("../../2.data_transformations", "data", "regex_
 
 # Run the script as a RStudio job
 rstudioapi::jobRunScript(path = "ner_rstudio_jobs.R", importEnv = TRUE)
+```
+
+# Analysis of the result of NER 
+```{r}
+max_words <- 5L # Set up the upper limit for the number of words that entity can consist of
+columns <- paste0("word_", 1:max_words)
+stemming_aggressive <- FALSE # Sets two levels of stemming within the Python script
+ner_period <- "nametag_regex" 
+period_exclude <- FALSE
+entity_types <- c("P", "io", "ic", "if", "gc", "gr", "gt", "gu")
+ner_chunks_paths <- list.files(path = "data", pattern = "*.rds", full.names = TRUE)
+czech_tv_presenters <- readRDS("../topic_modeling/data/czech_tv_presenters.rds")
+
+# Read the NER-processed chunks back in
+ner_tokens_df_filtered <-
+  mclapply(ner_chunks_paths[grep(pattern = ner_period, ner_chunks_paths, invert = period_exclude)], readRDS, mc.cores = detectCores() - 1) %>%
+  bind_rows() %>% 
+  lazy_dt() %>% 
+  filter(ent_type %in% entity_types) %>%  # Select entity of interest: https://ufal.mff.cuni.cz/~strakova/cnec2.0/ne-type-hierarchy.pdf
+  count(ent_text) %>% 
+  slice_max(order_by = n, prop = 0.1) %>% 
+  as_tibble() %>% 
+  lazy_dt() %>% 
+  mutate(
+    ent_text = tolower(ent_text),
+    n,
+    words_n = str_count(ent_text, "\\S+")
+  ) %>%
+  filter(between(words_n, 1, max_words)) %>%
+  separate(ent_text, into = all_of(columns), remove = FALSE, sep = "\\s", extra = "drop", fill = "right") %>%
+  mutate(across(all_of(columns), ~ str_replace(., "[[:punct:]]|[0-9]", NA_character_))) %>% # Optional: replace punctuation and digits with NA
+  select(-c(ent_text, words_n)) %>% 
+  as_tibble()
+
+saveRDS(ner_tokens_df_filtered, "ner_tokens_df_filtered.rds")
+
+gc()
+
+# lemmatize <- udpipe(x = c("token_" = ner_df$ent_text), parallel.cores = parallel::detectCores() - 1, object = "czech-pdt")
+
+# Import custom stemming script into Python
+reticulate::py_run_string("from czech_stemmer import cz_stem_list")
+# Process all columns of interest with this script
+reticulate::py_run_string("r.ner_tokens_df_filtered = r.ner_tokens_df_filtered.apply(lambda x: cz_stem_list(x, r.stemming_aggressive) if x.name in r.columns else x)")
+
+# Stem names of TV presenters
+reticulate::py_run_string("r.presenters_stemmed = cz_stem_list(r.czech_tv_presenters, r.stemming_aggressive)")
+
+# Summarize the top Entities that appear in the dataset
+ner_summary <-  ner_tokens_df_filtered %>%
+  mutate(across(all_of(columns), na_if, "NA")) %>%
+  filter(!word_2 %in% presenters_stemmed) %>% 
+  unite("ent_text_stemmed", all_of(columns), sep = " ", na.rm = TRUE) %>%
+  {aggregate(x = .['n'], by = .['ent_text_stemmed'], FUN = sum)} %>% 
+  arrange(desc(n))
+
+saveRDS(ner_summary, "ner_summary.rds")
+
+```
+
+# Visuals: whole corpus
+```{r}
+plot_counts_ner <- ner_summary %>%
+  slice_max(n, n = 30) %>%
+  transmute(
+    terms = reorder(as.factor(tools::toTitleCase(ent_text_stemmed)), n),
+    counts = n
+  ) %>%
+  ggplot(aes(x = terms, y = counts / 1000)) +
+  geom_col(fill = "#a17b13") +
+  coord_flip() +
+  ylab(element_blank()) +
+  xlab(element_blank()) +
+  scale_y_continuous(
+    breaks = seq(0, 5000, 50),
+    labels = seq(0, 5000, 50)
+  ) +
+  labs(
+    title = "Decade of Czech Television news",
+    subtitle = "Most frequent entity in thousands (NER & stemmed)"
+  ) +
+  bbc_style() +
+  theme(
+    panel.grid.major.x = element_line(color = "#cbcbcb"),
+    panel.grid.major.y = element_blank(),
+    axis.text = element_text(margin = margin(t = 14, b = 10))
+  )
+
+finalise_plot(plot_counts_ner, source_name = "Source: Newton Media Archive, January 2012-April 2022. N=531,592.", save_filepath = "visuals/ner_counts.png", height_pixels = 850)
+```
+
+# Analysis: only climate-related corpus
+```{r}
+# Read the NER-processed chunks back in
+ner_tokens_df_filtered_climate <-
+  mclapply(ner_chunks_paths[grep(pattern = ner_period, ner_chunks_paths, invert = period_exclude)], readRDS, mc.cores = detectCores() - 1) %>%
+  bind_rows() %>% 
+  lazy_dt() %>% 
+  filter(doc_id %in% climate_article_ids) %>% 
+  filter(ent_type %in% entity_types) %>%  # Select entity of interest: https://ufal.mff.cuni.cz/~strakova/cnec2.0/ne-type-hierarchy.pdf
+  count(ent_text) %>% 
+  as_tibble() %>% 
+  lazy_dt() %>% 
+  mutate(
+    ent_text = tolower(ent_text),
+    n,
+    words_n = str_count(ent_text, "\\S+")
+  ) %>%
+  filter(between(words_n, 1, max_words)) %>%
+  separate(ent_text, into = all_of(columns), remove = FALSE, sep = "\\s", extra = "drop", fill = "right") %>%
+  mutate(across(all_of(columns), ~ str_replace(., "[[:punct:]]|[0-9]", NA_character_))) %>% # Optional: replace punctuation and digits with NA
+  select(-c(ent_text, words_n)) %>% 
+  as_tibble()
+
+saveRDS(ner_tokens_df_filtered_climate, "ner_tokens_df_filtered_climate.rds")
+
+# Import custom stemming script into Python
+reticulate::py_run_string("from czech_stemmer import cz_stem_list")
+# Process all columns of interest with this script
+reticulate::py_run_string("r.ner_tokens_df_filtered_climate = r.ner_tokens_df_filtered_climate.apply(lambda x: cz_stem_list(x, r.stemming_aggressive) if x.name in r.columns else x)")
+
+# Summarize the top Entities that appear in the dataset
+ner_summary_climate <-  ner_tokens_df_filtered_climate %>%
+  mutate(across(all_of(columns), na_if, "NA")) %>%
+  filter(!word_2 %in% presenters_stemmed) %>% 
+  unite("ent_text_stemmed", all_of(columns), sep = " ", na.rm = TRUE) %>%
+  {aggregate(x = .['n'], by = .['ent_text_stemmed'], FUN = sum)} %>% 
+  arrange(desc(n))
+
+saveRDS(ner_summary_climate, "ner_summary_climate.rds")
+```
+
+# Visuals: only climate-related articles
+```{r}
+plot_counts_ner_climate <- ner_summary_climate %>%
+  slice_max(n, n = 30) %>%
+  transmute(
+    terms = reorder(as.factor(tools::toTitleCase(ent_text_stemmed)), n),
+    counts = n
+  ) %>%
+  ggplot(aes(x = terms, y = counts)) +
+  geom_col(fill = "#ADE28A") +
+  coord_flip() +
+  ylab(element_blank()) +
+  xlab(element_blank()) +
+  scale_y_continuous(
+    breaks = seq(0, 20000, 2000),
+    labels = seq(0, 20000, 2000)
+  ) +
+  labs(
+    title = "Decade of Czech Television news",
+    subtitle = "Most frequent entity (NER & stemmed) in climate corpus"
+  ) +
+  bbc_style() +
+  theme(
+    panel.grid.major.x = element_line(color = "#cbcbcb"),
+    panel.grid.major.y = element_blank(),
+    axis.text = element_text(margin = margin(t = 14, b = 10))
+  )
+
+finalise_plot(plot_counts_ner_climate, source_name = "Source: Newton Media Archive, January 2012-April 2022. N=531,592.", save_filepath = "visuals/plot_counts_ner_climate.png", height_pixels = 850)
 ```
 
