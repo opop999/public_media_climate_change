@@ -1,0 +1,50 @@
+
+
+
+```{r}
+udpipe_chunks <- list.files(path = "../2.data_transformations/data/udpipe_processed/", pattern = "*.rds", full.names = TRUE)
+
+process_df <- function(i) {
+  
+  readRDS(i) %>% 
+    lazy_dt() %>% 
+    filter(upos %in% c("NOUN", "ADJ")) %>%
+    transmute(doc_id, lemma = gsub("[^ěščřžýáíéóúůďťňa-z ]", " ", tolower(str_replace_na(lemma, replacement = "")))) %>% 
+    filter(nchar(lemma) > 1) %>% # filter one letter words 
+    group_by(doc_id) %>%
+    summarize(text = str_squish(str_c(lemma, collapse = " "))) %>%
+    ungroup() %>% 
+    as_tibble()
+
+}
+
+combined_df <- mclapply(udpipe_chunks, process_df, mc.cores = detectCores() - 1) %>% bind_rows()
+```
+
+
+
+```{r}
+polarization_string <- "klima|klimatista|klimatický|antropocén|globální (ohřívání|oteplování)|(ohřívání|oteplování) planety|uhlíkov\\S*|skleníkový (efekt|jev)|IPCC|UNFCCC|permafrost"
+
+urgency <- c("soběstačnost", "nízkoemisní", "záplava", "přívalový", "klimatický migrant", "vichřice")
+solution <- c("fosilní", "spalovací", "větrný", "cirkulární ekonomika", "oběhové hospodářství", "nízkoemisní", "uhlíku", "offsetování emisí", "offsetování uhlíku")
+
+
+udpipe_filtered <- udpipe %>%
+  lazy_dt() %>%
+  filter(upos %in% c("NOUN", "ADJ", "ADV", "VERB")) %>%
+  transmute(doc_id, lemma = gsub("[^ěščřžýáíéóúůďťňa-z ]", " ", tolower(str_replace_na(lemma, replacement = "")))) %>%
+  filter(nchar(lemma) > 1) %>% # filter one letter words
+  group_by(doc_id) %>%
+  summarize(text = str_squish(str_c(lemma, collapse = " "))) %>%
+  ungroup() %>%
+  mutate(polarization = str_count(text, polarization_string)) %>%
+  as_tibble()
+
+
+
+
+
+
+```
+
