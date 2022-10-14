@@ -6,7 +6,9 @@ packages_cran <-
   c(
     "dplyr",
     "text2vec",
-    "ggplot2"
+    "ggplot2",
+    "text2map",
+    "jsonlite"
   )
 
 packages_gh <-
@@ -16,36 +18,70 @@ packages_gh <-
 
 
 # Install packages not yet installed
-installed_packages <- packages %in% rownames(installed.packages())
+installed_packages <- packages_cran %in% rownames(installed.packages())
+
 if (any(installed_packages == FALSE)) {
   install.packages(packages_cran[!installed_packages])
   devtools::install_github(packages_gh[!installed_packages])
 }
 
 # Packages loading
-invisible(lapply(packages, library, character.only = TRUE))
+invisible(lapply(c(packages_cran, packages_gh), library, character.only = TRUE))
+
+# Load climate article doc ids for further filtering
+climate_article_ids <- readRDS("../../2.data_transformations/data/climate_sub_corpus/climate_article_ids.rds")
+stop_words_czech_television <-
+  c(
+    readRDS("../topic_modeling/data/czech_tv_presenters.rds"),
+    "moderátorka",
+    "moderátor",
+    "redaktorka",
+    "redaktor"
+    
+  )
+stop_words_cs <- fromJSON("../topic_modeling/data/stopwords_cs.json")
+
 ```
 
 ```{r}
 # Load previously created Document-Term-Matrix
 dtm_less_sparse <- readRDS("../topic_modeling/data/dtm_less_sparse_adj_propn.rds")
 
-# Apply TF-IDF weights
+dtm_climate <-
+  readRDS("../topic_modeling/data/dtm_udpipe.rds") %>%
+  .[climate_article_ids,] %>%
+  dtm_stopper(
+    stop_list = c(stop_words_cs, stop_words_czech_television),
+    stop_hapax = TRUE,
+    stop_null = TRUE,
+    stop_docprop = c(0.001, 0.99)
+  )
+
+# Define TF-IDF model for transformation 
 tf_idf_model <- TfIdf$new()
+
+# Apply TF-IDF weights to overall corpus
 dtm_tfidf <- fit_transform(dtm_less_sparse, tf_idf_model)
+
+# Apply TF-IDF weights to climate subcorpus
+dtm_tfidf_climate <- fit_transform(dtm_climate, tf_idf_model)
+
 ```
 
 ```{r}
-top_words <- vector(mode = "list", length = 3L) %>% setNames(c("counts", "tfidf_corpus", "tfidf_per_doc"))
+top_words <- vector(mode = "list", length = 6L) %>% setNames(c("counts", "counts_climate", "tfidf_corpus", "tfidf_corpus_climate", "tfidf_per_doc", "tfidf_per_doc_climate"))
 
 # Get simple counts of selected terms
 top_words[["counts"]] <- colSums(dtm_less_sparse) %>% sort(decreasing = TRUE)
+top_words[["counts_climate"]] <- colSums(dtm_climate) %>% sort(decreasing = TRUE)
 
 # Get words with highest TF-IDF values in the entire corpus
 top_words[["tfidf_corpus"]] <- colSums(dtm_tfidf) %>% sort(decreasing = TRUE)
+top_words[["tfidf_corpus_climate"]] <- colSums(dtm_tfidf_climate) %>% sort(decreasing = TRUE)
 
 # Get word with highest TF-IDF value per each of the documents
 # Split the calculation to set of rows to prevent running out of memory
+
 chunk_size <- 50000L
 index_rows <- seq_len(nrow(dtm_tfidf))
 index_chunks <- split(index_rows, ceiling(seq_along(index_rows) / chunk_size))
@@ -64,6 +100,15 @@ top_words[["tfidf_per_doc"]] <- top_word_doc %>%
     setNames(as.numeric(.), names(.))
   }
 
+# Repeat for climate subset
+
+top_words[["tfidf_per_doc_climate"]] <- colnames(dtm_tfidf_climate)[max.col(dtm_tfidf_climate)] %>% 
+  table() %>%
+  sort(decreasing = TRUE) %>%
+  {
+    setNames(as.numeric(.), names(.))
+  }
+
 # Save rankings
 saveRDS(top_words, "data/top_words.rds")
 ```
@@ -72,41 +117,46 @@ saveRDS(top_words, "data/top_words.rds")
 ```{r}
 # Get print of detailed ranking for terms of interest
 
-terms_of_interest <- c("klimatický", "klima")
+terms_of_interest <- c("životní", "klima", "příroda")
 
-paste0(
+for (term_of_interest in terms_of_interest) {
+  
+cat(paste0(
   "The term '",
-  terms_of_interest,
+  term_of_interest,
   "' appears ",
-  top_words[["counts"]][terms_of_interest],
+  top_words[["counts"]][term_of_interest],
   " times in the corpus. Rank ",
-  which(names(top_words[["counts"]]) %in% terms_of_interest),
+  which(names(top_words[["counts"]]) %in% term_of_interest),
   " out of ",
   length(top_words[["counts"]]),
-  "."
-)
-
-paste0(
+  ". \n"
+))
+  
+cat(paste0(
   "The term '",
-  terms_of_interest,
+  term_of_interest,
   "' ranks ",
-  which(names(top_words[["tfidf_corpus"]]) %in% terms_of_interest),
+  which(names(top_words[["tfidf_corpus"]]) %in% term_of_interest),
   " out of ",
-  length(top_words[["tfidf_corpus"]]), " based on TF-IDF."
-)
+  length(top_words[["tfidf_corpus"]]), " based on TF-IDF across the whole corpus.\n"
+))
 
-paste0(
+cat(paste0(
   "The term '",
-  terms_of_interest,
+  term_of_interest,
   "' is a main key word of a document ",
-  top_words[["tfidf_per_doc"]][terms_of_interest],
+  top_words[["tfidf_per_doc"]][term_of_interest],
   " times in the corpus. Ranked ",
-  which(names(top_words[["tfidf_per_doc"]]) %in% terms_of_interest),
+  which(names(top_words[["tfidf_per_doc"]]) %in% term_of_interest),
   " out of ",
-  length(top_words[["tfidf_per_doc"]])
-)
+  length(top_words[["tfidf_per_doc"]]), "\n\n"
+))
+
+}
 ```
 
+# Visualizations on the corpus level
 ```{r}
 plot_counts <- top_words[["counts"]] %>%
   data.frame(
@@ -188,7 +238,7 @@ plot_tfidf_per_doc <- top_words[["tfidf_per_doc"]] %>%
   ) +
   labs(
     title = "Decade of Czech Television news",
-    subtitle = "Most common document-level Key Lemma (based on TF-IDF)"
+    subtitle = "Most common document-level Key Lemmata (based on TF-IDF)"
   ) +
   bbc_style() +
   theme(
@@ -199,3 +249,100 @@ plot_tfidf_per_doc <- top_words[["tfidf_per_doc"]] %>%
 
 finalise_plot(plot_tfidf_per_doc, source_name = "Source: Newton Media Archive, January 2012-April 2022. N=531,592.", save_filepath = "visuals/plot_tfidf_per_doc.png", height_pixels = 850)
 ```
+
+# Visualizations on the climate sub-corpus level
+```{r}
+plot_counts_climate <- top_words[["counts_climate"]] %>%
+  data.frame(
+    terms = reorder(as.factor(tools::toTitleCase(names(.))), .),
+    counts = .,
+    row.names = NULL
+  ) %>%
+  slice_max(counts, n = 30) %>%
+  ggplot(aes(x = terms, y = counts)) +
+  geom_col(fill = "#71b3c7") +
+  coord_flip() +
+  ylab(element_blank()) +
+  xlab(element_blank()) +
+  scale_y_continuous(
+    breaks = seq(0, 50000, 10000),
+    labels = seq(0, 50000, 10000)
+  ) +
+  labs(
+    title = "Decade of Czech Television climate news",
+    subtitle = "Most frequent lemma"
+  ) +
+  bbc_style() +
+  theme(
+    panel.grid.major.x = element_line(color = "#cbcbcb"),
+    panel.grid.major.y = element_blank(),
+    axis.text = element_text(margin = margin(t = 14, b = 10))
+  )
+
+finalise_plot(plot_counts_climate, source_name = "Source: Newton Media Archive, January 2012-April 2022. N=10,092.", save_filepath = "visuals/plot_counts_climate.png", height_pixels = 850)
+```
+
+```{r}
+plot_tfidf_corpus_climate <- top_words[["tfidf_corpus_climate"]] %>%
+  data.frame(
+    terms = reorder(as.factor(tools::toTitleCase(names(.))), .),
+    score = .,
+    row.names = NULL
+  ) %>%
+  slice_max(score, n = 30) %>%
+  ggplot(aes(x = terms, y = score)) +
+  geom_col(fill = "#c26666") +
+  coord_flip() +
+  ylab(element_blank()) +
+  xlab(element_blank()) +
+  scale_y_continuous(
+    breaks = seq(0, 200, 50),
+    labels = seq(0, 200, 50)
+  ) +
+  labs(
+    title = "Decade of Czech Television climate news",
+    subtitle = "Key Lemmata for the climate sub-corpus (sum of TF-IDF)"
+  ) +
+  bbc_style() +
+  theme(
+    panel.grid.major.x = element_line(color = "#cbcbcb"),
+    panel.grid.major.y = element_blank(),
+    axis.text = element_text(margin = margin(t = 14, b = 10))
+  )
+
+finalise_plot(plot_tfidf_corpus_climate, source_name = "Source: Newton Media Archive, January 2012-April 2022. N=10,092.", save_filepath = "visuals/plot_tfidf_corpus_climate.png", height_pixels = 850)
+```
+
+```{r}
+plot_tfidf_per_doc_climate <- top_words[["tfidf_per_doc_climate"]] %>%
+  data.frame(
+    terms = reorder(as.factor(tools::toTitleCase(names(.))), .),
+    count = .,
+    row.names = NULL
+  ) %>%
+  slice_max(count, n = 30) %>%
+  ggplot(aes(x = terms, y = count)) +
+  geom_col(fill = "#9bb566") +
+  coord_flip() +
+  ylab(element_blank()) +
+  xlab(element_blank()) +
+  scale_y_continuous(
+    breaks = seq(0, 300, 50),
+    labels = seq(0, 300, 50)
+  ) +
+  labs(
+    title = "Decade of Czech Television climate news",
+    subtitle = "Most common document-level Key Lemmata (based on TF-IDF)"
+  ) +
+  bbc_style() +
+  theme(
+    panel.grid.major.x = element_line(color = "#cbcbcb"),
+    panel.grid.major.y = element_blank(),
+    axis.text = element_text(margin = margin(t = 14, b = 10))
+  )
+
+finalise_plot(plot_tfidf_per_doc_climate, source_name = "Source: Newton Media Archive, January 2012-April 2022. N=10,092.", save_filepath = "visuals/plot_tfidf_per_doc_climate.png", height_pixels = 850)
+```
+
+
+

@@ -31,6 +31,9 @@ if (any(installed_packages == FALSE)) {
 # Packages loading
 invisible(lapply(packages, library, character.only = TRUE))
 
+# Load climate article doc ids for further filtering
+climate_article_ids <- readRDS("../../2.data_transformations/data/climate_sub_corpus/climate_article_ids.rds")
+
 ```
 
 ## Using RStudio jobs to parallelize 

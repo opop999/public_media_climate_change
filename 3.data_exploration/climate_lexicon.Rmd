@@ -48,3 +48,53 @@ udpipe_filtered <- udpipe %>%
 
 ```
 
+# Which proper nouns appear in the climate sub-corpus?
+```{r}
+climate_article_ids <- readRDS("../2.data_transformations/data/climate_sub_corpus/climate_article_ids.rds")
+
+stop_words_czech_television <-
+  c(
+    readRDS("../4.data_analysis/topic_modeling/data/czech_tv_presenters.rds"),
+    "moderátorka",
+    "moderátor",
+    "redaktorka",
+    "redaktor"
+    
+  )
+
+udpipe_chunks <- list.files(path = "../2.data_transformations/data/udpipe_processed/", pattern = "*.rds", full.names = TRUE)
+
+process_df <- function(i) {
+  
+  readRDS(i) %>% 
+    lazy_dt() %>% 
+      filter(doc_id %in% climate_article_ids & upos == "PROPN" & grepl("NameType=Sur", fixed = TRUE, feats)) %>%
+      transmute(doc_id, sentence_id, token_id, lemma = gsub("[^ěščřžýáíéóúůďťňa-z ]", " ", tolower(str_replace_na(lemma, replacement = "")))) %>% 
+      filter(nchar(lemma) > 1) %>% 
+      as_tibble()
+}
+
+full_names_df <- mclapply(udpipe_chunks, process_df, mc.cores = detectCores()) %>%
+      bind_rows() %>% 
+      group_by(doc_id, sentence_id) %>% 
+      summarize(name = str_squish(str_c(lemma, collapse = " "))) %>%
+      ungroup() %>% 
+      mutate(words_n = str_count(name, "\\S+")) %>% 
+      filter(words_n == 2) %>% 
+      count(name) %>% 
+      ungroup() %>% 
+      filter(n > 1) %>%
+      arrange(desc(n))
+
+surnames_df <- mclapply(udpipe_chunks, process_df, mc.cores = detectCores()) %>%
+      bind_rows() %>% 
+      rename(name = lemma) %>% 
+      count(name) %>% 
+      filter(n > 1) %>%
+      arrange(desc(n))
+
+
+
+
+```
+
