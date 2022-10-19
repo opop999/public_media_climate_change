@@ -344,5 +344,20 @@ plot_tfidf_per_doc_climate <- top_words[["tfidf_per_doc_climate"]] %>%
 finalise_plot(plot_tfidf_per_doc_climate, source_name = "Source: Newton Media Archive, January 2012-April 2022. N=10,092.", save_filepath = "visuals/plot_tfidf_per_doc_climate.png", height_pixels = 850)
 ```
 
+```{r}
+library(cowplot)
+
+p1 <- ggdraw() + draw_image("visuals/plot_counts.png")
+p2 <- ggdraw() + draw_image("visuals/plot_counts_climate.png")
+p3 <- ggdraw() + draw_image("visuals/plot_tfidf_corpus.png")
+p4 <- ggdraw() + draw_image("visuals/plot_tfidf_corpus_climate.png")
+
+grid_plot <- plot_grid(p1, p2, p3, p4, byrow = TRUE)
+
+save_plot("grid_plot.pdf", grid_plot, nrow = 2)
+
+
+```
+
 
 
