@@ -220,6 +220,6 @@ plot_counts_ner_climate <- ner_summary_climate %>%
     axis.text = element_text(margin = margin(t = 14, b = 10))
   )
 
-finalise_plot(plot_counts_ner_climate, source_name = "Source: Newton Media Archive, January 2012-April 2022. N=531,592.", save_filepath = "visuals/plot_counts_ner_climate.png", height_pixels = 850)
+finalise_plot(plot_counts_ner_climate, source_name = "Source: Newton Media Archive, January 2012-April 2022. N=10,092.", save_filepath = "visuals/plot_counts_ner_climate.png", height_pixels = 850)
 ```
 
