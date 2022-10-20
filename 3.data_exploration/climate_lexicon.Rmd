@@ -1,3 +1,30 @@
+Load necessary packages
+```{r include=FALSE}
+# Package names
+packages <-
+  c(
+    "dplyr",
+    "stringr",
+    "purrr",
+    "dtplyr",
+    "tidyr",
+    "ggplot2",
+    "data.table",
+    "forcats",
+    "parallel",
+    "stringdist",
+    "tibble"
+    )
+
+# Install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+invisible(lapply(packages, library, character.only = TRUE))
+```
 
 
 
@@ -41,12 +68,29 @@ udpipe_filtered <- udpipe %>%
   mutate(polarization = str_count(text, polarization_string)) %>%
   as_tibble()
 
-
-
-
-
-
 ```
+
+
+
+
+```{r}
+# To create a stop list of journalists of Czech television, we try to extract them from the full text.
+full_chunks_paths <- list.files(path = "../1.data_extraction/data/full_articles", pattern = "*.rds", full.names = TRUE)
+
+get_tv_presenters <- function(full_chunk_path) {
+  readRDS(full_chunk_path) %>% 
+    transmute(presenter_name = str_trim(str_replace_all(str_to_lower(word(gsub("<.*>", "", str_extract(Content, "^([^,]+)")), start = 1L, end = 2L), locale = "cs_CZ"), "[\r\n/]" , ""))) %>% 
+    filter(!is.na(presenter_name) & !grepl("-", presenter_name) & nchar(presenter_name) >= 3) %>% 
+    pull(presenter_name)
+}
+
+czech_tv_presenters_full_names <- mclapply(full_chunks_paths, get_tv_presenters,  mc.cores = detectCores() - 1) %>% unlist() %>% table() %>% sort(decreasing = TRUE) %>% names() %>% .[nchar(.) >= 6] %>% head(100)
+
+saveRDS(czech_tv_presenters_full_names, "data/czech_tv_presenters_full_names.rds")
+```
+
+
+
 
 # Which proper nouns appear in the climate sub-corpus?
 ```{r}
@@ -54,17 +98,47 @@ climate_article_ids <- readRDS("../2.data_transformations/data/climate_sub_corpu
 
 stop_words_czech_television <-
   c(
-    readRDS("../4.data_analysis/topic_modeling/data/czech_tv_presenters.rds"),
+    readRDS("data/czech_tv_presenters_full_names.rds"),
     "moderátorka",
     "moderátor",
     "redaktorka",
-    "redaktor"
-    
-  )
+    "redaktor",
+    "hezký večer",
+    "michaela jílková",
+    "daniel stach",
+    "michal žák",
+    "blanka poulová",
+    "barbora žítková",
+    "marek slavík",
+    "josef kvasnička",
+    "pavla daňková",
+    "vendula horníková",
+    "bohumil vostal",
+    "alena zárybnická",
+    "katarína sedláčková",
+    "jan beránek",
+    "vlastimil weiner",
+    "markéta radová",
+    "zdeněk skokan",
+    "radovan daněk",
+    "david miřejovský",
+    "milada mcgrathová",
+    "jana bílek marečková",
+    "václava moravce",
+    "barbora šámalová",
+    "lukáš mathé",
+    "barbora blažková",
+    "martin laštůvka",
+    "veronika gecová",
+    "jana šrámková"
+    ) 
+```
 
+
+```{r}
 udpipe_chunks <- list.files(path = "../2.data_transformations/data/udpipe_processed/", pattern = "*.rds", full.names = TRUE)
 
-process_df <- function(i) {
+process_df_surname <- function(i) {
   
   readRDS(i) %>% 
     lazy_dt() %>% 
@@ -74,7 +148,17 @@ process_df <- function(i) {
       as_tibble()
 }
 
-full_names_df <- mclapply(udpipe_chunks, process_df, mc.cores = detectCores()) %>%
+process_df_full_name <- function(i) {
+  
+  readRDS(i) %>% 
+    lazy_dt() %>% 
+      filter(doc_id %in% climate_article_ids & upos == "PROPN" & grepl("NameType=Giv|NameType=Sur", feats)) %>%
+      transmute(doc_id, sentence_id, token_id, lemma = gsub("[^ěščřžýáíéóúůďťňa-z ]", " ", tolower(str_replace_na(lemma, replacement = "")))) %>% 
+      filter(nchar(lemma) > 1) %>% 
+      as_tibble()
+}
+
+full_names_df <- mclapply(udpipe_chunks[1], process_df_full_name, mc.cores = detectCores()) %>%
       bind_rows() %>% 
       group_by(doc_id, sentence_id) %>% 
       summarize(name = str_squish(str_c(lemma, collapse = " "))) %>%
@@ -83,17 +167,136 @@ full_names_df <- mclapply(udpipe_chunks, process_df, mc.cores = detectCores()) %
       filter(words_n == 2) %>% 
       count(name) %>% 
       ungroup() %>% 
-      filter(n > 1) %>%
+      filter(n > 1 & !grepl(pattern = paste0(stop_words_czech_television, collapse = "|"), name)) %>%
       arrange(desc(n))
 
 surnames_df <- mclapply(udpipe_chunks, process_df, mc.cores = detectCores()) %>%
       bind_rows() %>% 
       rename(name = lemma) %>% 
       count(name) %>% 
-      filter(n > 1) %>%
+      filter(n > 1 & !name %in% stop_words_czech_television) %>%
       arrange(desc(n))
 
+```
 
+# Identification of full names based on Named Entity Recognition
+```{r}
+ner_chunks <- list.files(path = "../4.data_analysis/named_entity_recognition/data", pattern = "*.rds", full.names = TRUE)
+
+process_ner_full_name <- function(i) {
+  
+  readRDS(i) %>% 
+    lazy_dt() %>% 
+      filter(doc_id %in% climate_article_ids & ent_type == "P" & nchar(ent_text) > 6) %>% 
+      transmute(doc_id, name = str_to_lower(ent_text, locale = "cs_CZ")) %>% 
+      as_tibble()
+}
+
+ner_full_names_df <- mclapply(ner_chunks, process_ner_full_name, mc.cores = detectCores()) %>%
+      bind_rows() %>% 
+      distinct(doc_id, name, .keep_all = TRUE) %>% 
+      count(name) %>% 
+      filter(n > 1 & !name %in% stop_words_czech_television) %>%
+      arrange(desc(n))
+
+write.csv(ner_full_names_df, "full_names_with_duplicates.csv")
+
+max_words <- 4L # Set up the upper limit for the number of words that entity can consist of
+columns <- paste0("word_", 1:max_words)
+stemming_aggressive <- TRUE # Sets two levels of stemming within the Python script
+
+non_stemmed_df <- ner_full_names_df %>% 
+  mutate(words_n = str_count(name, "\\S+")) %>%
+  filter(between(words_n, 1, max_words)) %>%
+  separate(name, into = all_of(columns), remove = FALSE, sep = "\\s", extra = "drop", fill = "right") %>%
+  mutate(across(all_of(columns), ~ str_replace(., "[[:punct:]]|[0-9]", NA_character_))) %>% # Optional: replace punctuation and digits with NA
+  select(-c(name, words_n))
+
+presenters_non_stemmed <- tibble(full_name = stop_words_czech_television) %>% 
+  separate(full_name, into = all_of(columns), remove = FALSE, sep = "\\s", extra = "drop", fill = "right") %>% 
+    select(-c(full_name))
+# Import custom stemming script into Python
+reticulate::py_run_string("from czech_stemmer import cz_stem_list")
+# Process all columns of interest with this script
+reticulate::py_run_string("r.non_stemmed_df = r.non_stemmed_df.apply(lambda x: cz_stem_list(x, r.stemming_aggressive) if x.name in r.columns else x)")
+
+reticulate::py_run_string("r.presenters_non_stemmed = r.presenters_non_stemmed.apply(lambda x: cz_stem_list(x, r.stemming_aggressive) if x.name in r.columns else x)")
+
+presenters_stemmed <- presenters_non_stemmed %>% 
+  mutate(across(all_of(columns), na_if, "NA")) %>% 
+  unite("ent_text_stemmed", all_of(columns), sep = " ", na.rm = TRUE) %>%
+  filter(ent_text_stemmed != "") %>% 
+  pull()
+
+final_stem_df <- non_stemmed_df %>% 
+  mutate(across(all_of(columns), na_if, "NA")) %>% 
+  unite("ent_text_stemmed", all_of(columns), sep = " ", na.rm = TRUE) %>%
+  filter(ent_text_stemmed != "" & !ent_text_stemmed %in% presenters_stemmed) %>% 
+  group_by(ent_text_stemmed) %>%
+  summarise(n = sum(n)) %>% 
+  arrange(desc(n))
+
+
+
+write.csv(final_stem_df, "full_names_stemmed.csv")
+
+write.csv(ner_full_names_df, "full_names_with_duplicates.csv")
+
+# test <- ner_full_names_df %>% 
+#   rowwise() %>% 
+#   mutate(name = paste(udpipe(name, object = "czech-pdt")[["lemma"]], collapse = " "))
+
+      # filter(n > 1 & !name %in% stop_words_czech_television) %>%
+
+# TO DO: Either stem or use proximity matching to remove duplicates (or udpipe for most?)
+
+```
+
+```{r}
+fuzzy_merged_df <- stringdist_left_join(
+  x = ner_full_names_df, # our left dataset
+  y = ner_full_names_df, # our right dataset
+  by = "name", # columns of both datasets we are matching
+  max_dist = 2, # Distance is specified as a full number, it could be for example 2.35.
+  method = "lv", # distance method we chose above
+  distance_col = "edit_distance", # name of the resulting distance column
+  weight = c(d = 0.5, i = 0.5, s = 1, t = 1) # Here we can adjust penalties (min 0, max 1) for different types of edits.
+) %>%
+  filter(edit_distance <= 1 & n.x >= n.y & !name.x %in% stop_words_czech_television) %>%
+  group_by(name.x) %>%
+  summarise(n = sum(n.y)) %>% 
+  ungroup() %>% 
+  transmute(name = name.x, n)
+
+
+test <- stringdist_left_join(
+  x = fuzzy_merged_df, # our left dataset
+  y = fuzzy_merged_df, # our right dataset
+  by = "name", # columns of both datasets we are matching
+  max_dist = 1, # Distance is specified as a full number, it could be for example 2.35.
+  method = "lv", # distance method we chose above
+  distance_col = "edit_distance", # name of the resulting distance column
+  weight = c(d = 0.5, i = 0.5, s = 1, t = 1) # Here we can adjust penalties (min 0, max 1) for different types of edits.
+) 
+
+string_distance_df <-
+  stringdistmatrix(
+    ner_full_names_df$name,
+    ner_full_names_df$name,
+    method = "lv",
+    weight = c(
+      d = 0.1,
+      i = 1,
+      s = 1,
+      t = 1
+    ),
+    nthread = detectCores(),
+    useNames = "strings"
+  ) %>% as_tibble(test, rownames = NA) %>% 
+            rownames_to_column(var = "original_name") %>% 
+  pivot_longer(2:ncol(.), names_to = "name_2", values_to = "edit_distance") %>% 
+  filter(edit_distance <= 1) %>%
+  full_join(ner_full_names_df, by = c("name_2" = "name"), keep = TRUE, copy = FALSE)
 
 
 ```
