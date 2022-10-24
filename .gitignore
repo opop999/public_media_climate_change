@@ -60,7 +60,5 @@ vignettes/*.pdf
 ## Article sentiment processed
 4.data_analysis/sentiment_analysis/data/*.json
 
-## Article climate sub-corpus ids
-2.data_transformations/data/climate_sub_corpus/*.rds
 
 
