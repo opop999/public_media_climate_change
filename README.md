@@ -1,4 +1,10 @@
-# Czech public television and climate change reporting, 2012-2022
+# Czech Public Television and Climate Change Reporting, 2012-2022
+
+*Andrea Culkova (Academy of Performing Arts in Prague) <br>
+Ondrej Pekacek (Charles University) <br>
+Irena Reifova (Charles University) <br>
+Irene Elmerot (Stockholm University)*
+
 ## A transformative journalism perspective
 
 This is a research project examining the coverage of climate change by Czech public media outlets, ČT 1 and ČT 24.
