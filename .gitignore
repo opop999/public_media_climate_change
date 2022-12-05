@@ -60,5 +60,10 @@ vignettes/*.pdf
 ## Article sentiment processed
 4.data_analysis/sentiment_analysis/data/*.json
 
+## Article topic analysis processed
+4.data_analysis/topic_analysis/data/*.json
+4.data_analysis/topic_analysis/data/*.rds
+
+
 
 

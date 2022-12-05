@@ -1,5 +1,7 @@
 ---
 title: "Synchronize local with remote Google Drive backup repository"
+params:
+  remote_path: "climate_change_datasets/datasets/"
 ---
 
 # Setup
@@ -13,7 +15,7 @@ drive_auth()
 drive_user()
 
 # Open web browser
-drive_browse("climate_change/datasets/")
+drive_browse(params$remote_path)
 
 ```
 
@@ -24,35 +26,39 @@ list_of_folders_to_synchronize <-
   list(
     media_articles_full = c(
       local_folder_path = "../1.data_extraction/data/full_articles/",
-      remote_folder_path = "climate_change/datasets/1.extracted_data/full/"
+      remote_folder_path = paste0(params$remote_path, "1.extracted_data/full/")
     ),
     media_articles_annotations = c(
       local_folder_path = "../1.data_extraction/data/annotated_articles/",
-      remote_folder_path = "climate_change/datasets/1.extracted_data/annotations/"
+      remote_folder_path = paste0(params$remote_path, "1.extracted_data/annotations/")
     ),
     media_articles_processed_regex = c(
       local_folder_path = "../2.data_transformations/data/regex_processed/",
-      remote_folder_path = "climate_change/datasets/2.processed_data/regex_processed/"
+      remote_folder_path = paste0(params$remote_path, "2.processed_data/regex_processed/")
     ),
     media_articles_processed_udpipe = c(
       local_folder_path = "../2.data_transformations/data/udpipe_processed/",
-      remote_folder_path = "climate_change/datasets/2.processed_data/udpipe_processed/"
+      remote_folder_path = paste0(params$remote_path, "2.processed_data/udpipe_processed/")
     ),
     media_articles_processed_subcorpus = c(
       local_folder_path = "../2.data_transformations/data/climate_sub_corpus/",
-      remote_folder_path = "climate_change/datasets/2.processed_data/climate_sub_corpus/"
+      remote_folder_path = paste0(params$remote_path, "2.processed_data/climate_sub_corpus/")
     ),
     media_articles_analyzed_ner = c(
       local_folder_path = "../4.data_analysis/named_entity_recognition/data/",
-      remote_folder_path = "climate_change/datasets/4.analyzed_data/named_entity_recognition/"
+      remote_folder_path = paste0(params$remote_path, "4.analyzed_data/named_entity_recognition/")
     ),
     media_articles_analyzed_sentiment = c(
       local_folder_path = "../4.data_analysis/sentiment_analysis/data/",
-      remote_folder_path = "climate_change/datasets/4.analyzed_data/sentiment_analysis/"
+      remote_folder_path = paste0(params$remote_path, "4.analyzed_data/sentiment_analysis/")
+    ),
+     media_articles_analyzed_topic = c(
+      local_folder_path = "../4.data_analysis/topic_modeling/data/",
+      remote_folder_path = paste0(params$remote_path, "4.analyzed_data/topic_modeling/")
     )
   )
 
-synchronize_selected_folders(list_of_folders = list_of_folders_to_synchronize)
+synchronize_selected_folders(list_of_folders_to_synchronize)
 
 ```
 
