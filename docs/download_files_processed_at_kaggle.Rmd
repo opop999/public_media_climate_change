@@ -1,16 +1,29 @@
+Download processed sentiment data from Kaggle (where GPU acceleration was used)
 ```{zsh, engine.opts='-l'}
 source ~/.zshrc
 
 conda activate $CONDA_ENV
 
 # Downloads all data from specified directory
-kaggle kernels output $KAGGLE_REPO -p ../4.data_analysis/sentiment_analysis/data/
+# kaggle kernels output $KAGGLE_REPO_SENT -p ../4.data_analysis/sentiment_analysis/data/
+# 
+# mv ../4.data_analysis/sentiment_analysis/data/output/* ../4.data_analysis/sentiment_analysis/data/
+# 
+# rm -r ../4.data_analysis/sentiment_analysis/data/output/
+#   
+# rm ../4.data_analysis/sentiment_analysis/data/*.log
 
-mv ../4.data_analysis/sentiment_analysis/data/output/* ../4.data_analysis/sentiment_analysis/data/
+```
 
-rm -r ../4.data_analysis/sentiment_analysis/data/output/
+Download processed Bertopic data from Kaggle
+```{zsh, engine.opts='-l'}
+# Downloads all data from specified directory
+kaggle kernels output $KAGGLE_REPO_BERTOPIC_EMBED -p ../4.data_analysis/topic_modeling/data/
+
+mv ../4.data_analysis/topic_modeling/data/output/* ../4.data_analysis/topic_modeling/data/
+
+rm -r ../4.data_analysis/topic_modeling/data/output/
   
-rm ../4.data_analysis/sentiment_analysis/data/*.log
-
+rm ../4.data_analysis/topic_modeling/data/*.log
 ```
 
