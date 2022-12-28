@@ -5,6 +5,8 @@ Ondrej Pekacek (Charles University) <br>
 Irena Reifova (Charles University) <br>
 Irene Elmerot (Stockholm University)*
 
+**Project website can be found [HERE](https://climate-topics.netlify.app/).**
+
 ## A transformative journalism perspective
 
 This is a research project examining the coverage of climate change by Czech public media outlets, ČT 1 and ČT 24.
