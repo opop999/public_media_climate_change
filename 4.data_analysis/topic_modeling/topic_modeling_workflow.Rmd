@@ -350,4 +350,20 @@ ggplot(mds_data, aes(x, y)) + geom_point()
 
 ```
 
+# Check key assumptions about LDA and NMF results 
+```{r}
+# PHI: Topic word distribution probabilies
+# Dimensions and sum of probabilites for topic one
+identical(dim(lda_model_adj_propn10$topic_word_distribution), dim(nmf_model_adj_propn_10@h))
+rowSums(lda_model_adj_propn10$topic_word_distribution[1:10,])
+rowSums(nmf_model_adj_propn_10@h[1:10,])
+
+# THETA: Document topic distribution
+# Sum of probabilites across the k number of topics in selected document
+# The values of theta distributions in NMF can range from 0 to 1,
+# but they may not always sum to 1 for each topic or document, as they do in LDA.
+identical(dim(doc_topic_distribution_adj_propn10), dim(nmf_model_adj_propn_10@w))
+rowSums(doc_topic_distribution_adj_propn10[1:10,])
+rowSums(nmf_model_adj_propn_10@w[1:10,])
+```
 
