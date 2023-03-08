@@ -15,8 +15,11 @@ if (any(installed_packages == FALSE)) {
 # Packages loading
 invisible(lapply(packages, library, character.only = TRUE))
 
-
+# Regex search string based on suggestions from area experts
 climate_regex_string <- "klima\\S*|antropocén|permafrost|nízkoemisn\\S+|uhlíkov\\S*|větrn\\S+|IPCC|UNFCCC|fosiln\\S+"
+
+# Optionally specify negative regex search string to improve performance
+negative_climate_regex_string <- "klimatiza\\S*|povětrn\\S*"
 
 path_to_input <- "data/udpipe_processed"
 
@@ -32,9 +35,13 @@ udpipe_chunks_path <- list.files(path = file.path(path_to_input),
 # match the regex search string
 get_climate_articles <- function(udpipe_chunk_path) {
   
-  readRDS(udpipe_chunk_path) %>% 
-    filter(str_detect(str_to_lower(lemma, locale = "cs"), climate_regex_string)) %>% 
-    pull(doc_id) %>% 
+  readRDS(udpipe_chunk_path) %>%
+    mutate(lemma = str_to_lower(lemma, locale = "cs")) %>%
+    filter(
+      str_detect(lemma, climate_regex_string) &
+        str_detect(lemma, negative_climate_regex_string, negate = TRUE)
+    ) %>%
+    pull(doc_id) %>%
     unique()
   
 }
