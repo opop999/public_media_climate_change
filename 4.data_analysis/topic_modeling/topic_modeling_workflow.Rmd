@@ -367,3 +367,66 @@ rowSums(doc_topic_distribution_adj_propn10[1:10,])
 rowSums(nmf_model_adj_propn_10@w[1:10,])
 ```
 
+# Exploratory analyses on the results of the chosen model: NMF 20
+```{r}
+# In this script we try to analyze the results of topic modeling using NMF with k=20.
+options(scipen = 999)
+library(tidyverse)
+library(knitr)
+
+path_to_file <- "4.data_analysis/topic_modeling/data/models/topic_word_distribution_adj_propn_20.rds"
+
+nmf_topic_word <- readRDS(path_to_file)
+
+
+# Predicted topic-word distribution of the 20 topic NMF model created with the RccpML nmf() function.
+# topic_word_nmf_k_20 is a two-dimensional matrix, where one dimension consists of 20 topics and the other dimension
+# consists of all the words in the vocabulary of the model (2909 words/lemma).
+# Which topics contain the word of interest and what are the associated probabilities?
+words_of_interest <- c("klima", "klimatický", "počasí", "uhlí", "ekologický")
+
+sapply(words_of_interest, function(x) print(colnames(nmf_topic_word)[grep(x, colnames(nmf_topic_word))]))
+
+for (word_of_interest in words_of_interest) {
+
+# Get topics and probabilities for this word and print to console
+nmf_topic_word[, word_of_interest][nmf_topic_word[, word_of_interest] > 0] %>%
+  sort(decreasing = TRUE) %>%
+  round(digits = 1) %>%
+  tibble(topic = names(.), probability = .) %>%
+  kable(caption = word_of_interest) %>%
+  print()
+}
+
+# What is the combined probability of the word over all of the topics combined?
+colSums(nmf_topic_word)[[word_of_interest]]
+
+
+# Get the ranking of the word in each topic and print to console
+for (word_of_interest in words_of_interest) {
+
+apply(nmf_topic_word, 1, function(x) {
+  if (x[word_of_interest] == 0) {
+    return(NA)
+  } else {
+    return(rank(-x, ties.method = "min")[word_of_interest])
+  }
+}) %>%
+  .[!is.na(.)] %>%
+  sort(decreasing = TRUE) %>%
+  tibble(topic = names(.), ranking = .) %>%
+  kable(caption = word_of_interest) %>%
+  print()
+
+}
+
+# LDA model
+LDA_topic_word_distribution_adj_propn_50 <- lda_model_adj_propn50$topic_word_distribution
+rownames(LDA_topic_word_distribution_adj_propn_50) <- paste0("topic_", 1:50)
+
+LDA_topic_word_distribution_adj_propn_50[,"klimatický"] %>% sort(decreasing = TRUE) * 1000
+
+lda_model_adj_propn50$plot(R = 100, reorder.topics = TRUE)
+
+```
+
