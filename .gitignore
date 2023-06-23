@@ -61,8 +61,9 @@ vignettes/*.pdf
 4.data_analysis/sentiment_analysis/data/*.json
 
 ## Article topic analysis processed
-4.data_analysis/topic_analysis/data/*.json
-4.data_analysis/topic_analysis/data/*.rds
+4.data_analysis/topic_modeling/data/**/*.json
+4.data_analysis/topic_modeling/data/**/*.rds
+
 
 
 
