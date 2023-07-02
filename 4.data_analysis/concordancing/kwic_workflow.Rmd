@@ -1,0 +1,132 @@
+# Load necessary libraries
+```{r}
+packages <-
+  c(
+    "stringr",
+    "purrr",
+    "tidyr",
+    "quanteda",
+    "wordcloud",
+    "parallel",
+    "data.table",
+    "dtplyr",
+    "dplyr"
+  )
+
+# Install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+invisible(lapply(packages, library, character.only = TRUE))
+
+# Load main function
+source("get_kwics.R")
+
+```
+
+
+# Parameters to adjust
+```{r}
+path_to_udpipe_chunks <- "../../2.data_transformations/data/udpipe_processed"
+
+list_of_udpipe_chunks <- list.files(path = path_to_udpipe_chunks,
+                                    pattern = "*.rds",
+                                    full.names = TRUE)
+# Do you only want certain time periods to be included? Uncomment and pipe the line below.
+                                  # .[grepl("2015-(10|11|12)", .)]
+
+# Should tokens or lemma be analyzed? Choosing lemma improves performance at the cost of readability.
+lemma_or_token <- "token" # lemma / token
+# Should the results be lowercased? Might improve performance at the cost of readability.
+lowercase <- FALSE
+# Size of the context window in which concordances will be found.
+max_words_context <- 5 
+# Which UPOS do we include? The fewer the faster the script.
+upos_filter <-
+  c(
+    "VERB",
+    "NOUN",
+    "ADJ",
+    "PROPN",
+    "PUNCT",
+    "ADV",
+    "NUM",
+    "ADP",
+    "AUX",
+    "PRON",
+    "CCONJ",
+    "SCONJ",
+    "INTJ",
+    "DET",
+    "PART"
+  )
+# Choose which columns will the wordloud visualize. By default, we include both. 
+context_direction <- c("pre", "post") 
+```
+
+# Specify regex pattern to match the key words of interest
+```{r}
+# Notes on the variables: 
+# filter_main removes from the keyword column. For instance, we have matched
+# "klima" for the KWIC analysis, but "klimatizace" got matched as well. This will 
+# remove it.
+# filter_pre and filter_post remove from the pre and post columns.
+# For instance, we want to delete all rows, where "societal" OR "political" 
+# preceeds the word "climate", as these phrases have nothing to do with climate change. 
+kwic_pattern_regex <- list(climate = c(key_word = phrase(c("\\bklima\\S*")),
+                                       # We filter "klimatiz*" OR "klimatolo*" from main keywords
+                                       filter_main = "klimatiz\\S+|klimatolo\\S+",
+                                       # To match immediately preceeding word to the keyword in pre column, "$" must be used
+                                       filter_pre = "(společensk\\S+|politick\\S+|podnikatelsk\\S+)$",
+                                       # To match immediately following word in post column, "^" must be used
+                                       filter_post = "^ve společnost\\S+"), 
+                                       # We use phrase() function with ordinary space between both terms
+                        global_warming = c(key_word = phrase(c("\\bglobáln\\S+ oteplován\\S+")),
+                                           filter_main = NA,
+                                           filter_pre = NA,
+                                           filter_post = NA),
+                        greenhouse_effect = c(key_word = phrase(c("\\bskleníkov\\S+ efekt\\S*")),
+                                              filter_main = NA,
+                                              filter_pre = NA,
+                                              filter_post = NA),
+                        carbon_footprint = c(key_word = phrase(c("\\buhlíkov\\S+ stop\\S+")),
+                                             filter_main = NA,
+                                             filter_pre = NA,
+                                             filter_post = NA))
+```
+
+# Process chunks individually with get_kwics function to get combined dataset
+```{r}
+# If we are using Linux or MacOS, we can use multiple CPUs to make the whole
+# process much faster. Each core handles different chunk at the same time.
+
+if (Sys.info()[['sysname']] == "Windows") {
+  # Use normal apply with windows
+  kwic_df_full <-
+    lapply(list_of_udpipe_chunks, get_kwics) %>% bind_rows()
+
+} else {
+  kwic_df_full <-
+    mclapply(list_of_udpipe_chunks, get_kwics, mc.cores = detectCores() - 2) %>% bind_rows()
+}
+
+saveRDS(kwic_df_full, "data/kwic_df_full.rds")
+```
+
+```{r}
+# Wordcloud of all of the pre & post words: Automatically splits multi-word token elements
+kwic_df_full %>%
+  unite(all_context, all_of(context_direction), sep = " ") %>%
+  pull(all_context) %>%
+  strsplit(., split = " ") %>%
+  unlist() %>%
+  tibble(word = .) %>%
+  count(word, sort = TRUE) %>%
+  filter(!is.na(word)) %>%
+  with(wordcloud(word, n, min.freq = 500, random.order = FALSE, max.words = 100, colors = brewer.pal(8, "Dark2")))
+
+```
+
