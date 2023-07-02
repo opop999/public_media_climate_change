@@ -1,0 +1,106 @@
+# Question 2: What is the average + total wordcount in the news containing the key words „klima“ or „globální oteplování“ per year? 
+
+## Load necessary libraries and specify paths and datasets
+```{r}
+packages <-
+  c(
+    "dplyr",
+    "stringr",
+    "purrr",
+    "tidyr",
+    "parallel",
+    "lubridate",
+    "ggplot2"
+  )
+
+# Install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+invisible(lapply(packages, library, character.only = TRUE))
+
+list_of_regex_chunks <- list.files(path = "../2.data_transformations/data/regex_processed/", pattern = "*.rds", full.names = TRUE)
+# Load term counts created in the previous step of the workflow
+term_counts_df <- readRDS("data/term_counts_df.rds")
+doc_id_by_date <- readRDS("data/doc_id_by_date.rds")
+```
+
+## Specify function to get the docs length
+```{r}
+get_documents_length <- function(regex_chunk) {
+  regex_chunk %>% 
+    readRDS() %>% 
+    mutate(doc_id = article_id,
+    words = str_count(text, "\\w+"),
+    .keep = "none")
+}
+```
+
+## Process regex chunks individually
+```{r}
+# If we are using Linux or MacOS, we can use multiple CPUs to make the whole
+# process much faster. Each core handles different chunk at the same time.
+
+if (Sys.info()[['sysname']] == "Windows") {
+  # Use normal apply with Windows
+  length_of_documents_df <-
+    lapply(list_of_regex_chunks, get_documents_length) %>% bind_rows()
+
+} else {
+  length_of_documents_df <-
+    mclapply(list_of_regex_chunks, get_documents_length, mc.cores = detectCores() - 2) %>% bind_rows()
+}
+
+saveRDS(length_of_documents_df, "data/length_of_documents_df.rds")
+```
+
+## Join both datasets and keep only the documents, which are relevant
+```{r}
+length_of_climate_docs <- term_counts_df %>% 
+  filter(climate_count > 0 | global_warming_count > 0) %>% 
+  select(doc_id, year) %>% 
+  left_join(length_of_documents_df, by = "doc_id")
+  
+```
+
+## Summarize the word count per year
+```{r}
+word_length_per_year <- length_of_climate_docs %>%
+  group_by(year) %>%
+  summarise(
+words_per_year = sum(words)
+  ) %>%
+  ungroup() %>%
+  bind_rows(summarise(
+    ., across(where(is.numeric), mean),
+    across(where(is.character), ~"Avg words per year")
+  ), summarise(
+    ., across(where(is.numeric), sum),
+    across(where(is.character), ~"Total words")
+  ))
+
+knitr::kable(word_length_per_year, format = "pipe")
+```
+
+## Visualize
+```{r}
+word_length_per_year %>%
+  filter(!year %in% c("Total words", "Avg words per year")) %>% 
+  mutate(year = as.Date(paste0(year,"-01-01")),
+         words_per_year_thousand = words_per_year/1000) %>% 
+  ggplot(aes(x = year, y = words_per_year_thousand)) +
+  geom_line() +
+  geom_point(size = 2) +
+   theme_minimal() +
+    scale_y_continuous(
+      breaks = seq(0, 10000, 100),
+      labels = seq(0, 10000, 100)
+    ) +
+    labs(x = element_blank(),
+             y = "Thousands of words",
+             title = "Yearly word counts of climate-relevant documents")
+```
+

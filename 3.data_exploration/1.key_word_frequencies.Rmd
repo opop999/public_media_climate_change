@@ -1,0 +1,149 @@
+# Question 1: What was the frequency of the following key words per year and the whole period?
+
+„klima“, „globální oteplování“, „skleníkový efekt“, „uhlíková stopa“.
+
+## Load necessary libraries and specify paths
+```{r}
+packages <-
+  c(
+    "dplyr",
+    "stringr",
+    "purrr",
+    "tidyr",
+    "parallel",
+    "lubridate",
+    "ggplot2"
+  )
+
+# Install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+invisible(lapply(packages, library, character.only = TRUE))
+
+doc_id_by_date <- readRDS("data/doc_id_by_date.rds")
+
+list_of_processed_chunks <- list.files(path = "../2.data_transformations/data/udpipe_processed", pattern = "*.rds", full.names = TRUE)
+
+```
+
+## Specify term counting function
+```{r}
+count_terms_of_interest <- function(text_vector, term) {
+  str_count(text_vector, regex(term))
+}
+
+get_term_counts <- function(chunk_path) {
+  text_stats <- chunk_path %>%
+    readRDS() %>%
+    filter(upos %in% c("ADJ", "NOUN", "PUNCT")) %>%
+    transmute(doc_id, lemma = tolower(lemma)) %>%
+    inner_join(doc_id_by_date, by = "doc_id") %>%
+    mutate(date = as.character(year(date))) %>%
+    group_by(doc_id) %>%
+    summarize(
+      text = str_squish(str_c(lemma, collapse = " ")),
+      year = first(date),
+      climate_count = count_terms_of_interest(text, "(?<!společenské |politické )klima\\b"),
+      warming_count = count_terms_of_interest(text, "\\boteplování"),
+      global_warming_count = count_terms_of_interest(text, "\\bglobální oteplování"),
+      greenhouse_effect_count = count_terms_of_interest(text, "\\bskleníkový efekt"),
+      carbon_footprint_count = count_terms_of_interest(text, "\\buhlíkový stopa"),
+      ecological_count = count_terms_of_interest(text, "\\bekologický"),
+      climatic_count = count_terms_of_interest(text, "\\bklimatický"),
+      coal_count = count_terms_of_interest(text, "\\buhlí"),
+      weather_count = count_terms_of_interest(text, "\\bpočasí"),
+      combined_count = climate_count + warming_count + global_warming_count + greenhouse_effect_count + carbon_footprint_count + ecological_count + climatic_count + coal_count + weather_count
+    ) %>%
+    ungroup() %>%
+    filter(combined_count > 0) %>%
+    select(-c("text"))
+}
+```
+
+## Run the function on chunk-to-chunk basis
+```{r}
+
+# If we are using Linux or MacOS, we can use multiple CPUs to make the whole
+# process much faster. Each core handles different chunk at the same time.
+
+if (Sys.info()[['sysname']] == "Windows") {
+  # Use normal apply with Windows
+  term_counts_df <-
+    lapply(list_of_processed_chunks, get_term_counts) %>% bind_rows()
+
+} else {
+  term_counts_df <-
+    mclapply(list_of_processed_chunks, get_term_counts, mc.cores = detectCores() - 2) %>% bind_rows()
+}
+
+saveRDS(term_counts_df, "data/term_counts_df.rds")
+```
+
+## Summarize the key term count per year
+```{r}
+term_counts_per_year <- term_counts_df %>%
+  group_by(year) %>%
+  summarise(
+    n_climate = sum(climate_count),
+    n_warming = sum(warming_count),
+    n_global_warming = sum(global_warming_count),
+    n_greenhouse_effect = sum(greenhouse_effect_count),
+    n_carbon_footprint = sum(carbon_footprint_count),
+    n_ecological = sum(ecological_count),
+    n_climatic = sum(climatic_count),
+    n_coal = sum(coal_count),
+    n_weather = sum(weather_count)
+  ) %>%
+  ungroup() %>%
+  bind_rows(summarise(
+    ., across(where(is.numeric), sum),
+    across(where(is.character), ~"Total")
+  ))
+
+knitr::kable(term_counts_per_year, format = "pipe")
+```
+
+## Visualize all of the terms and their frequencies
+```{r}
+term_counts_per_year %>%
+  filter(year != "Total") %>% 
+  pivot_longer(where(is.numeric), values_to = "count", names_to = "term") %>% 
+  mutate(year = as.factor(year),
+         term = str_remove(term, "^n_")) %>% 
+  ggplot(aes(x = year, y = count, fill = term)) +
+  geom_col() +
+   theme_minimal() +
+    scale_y_continuous(
+      breaks = seq(0, 10000, 500),
+      labels = seq(0, 10000, 500)
+    ) +
+    scale_fill_brewer(palette = "Set1")+ 
+    labs(x = element_blank(),
+             y = "Lemma occurences per year",
+             fill = "")
+```
+
+## Visualize Just the main 4 terms
+```{r}
+term_counts_per_year %>%
+  filter(year != "Total") %>% 
+  pivot_longer(where(is.numeric), values_to = "count", names_to = "term") %>% 
+  mutate(year = as.factor(year),
+         term = str_remove(term, "^n_")) %>% 
+  filter(term %in% c("global_warming", "climate", "greenhouse_effect", "carbon_footprint")) %>% 
+  ggplot(aes(x = year, y = count, fill = term)) +
+  geom_col() +
+   theme_minimal() +
+    scale_y_continuous(
+      breaks = seq(0, 10000, 100),
+      labels = seq(0, 10000, 100)
+    ) +
+    scale_fill_brewer(palette = "Set1")+ 
+    labs(x = element_blank(),
+             y = "Lemma occurences per year",
+             fill = "")
+```
