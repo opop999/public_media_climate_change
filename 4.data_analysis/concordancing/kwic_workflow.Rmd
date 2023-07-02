@@ -116,6 +116,7 @@ if (Sys.info()[['sysname']] == "Windows") {
 saveRDS(kwic_df_full, "data/kwic_df_full.rds")
 ```
 
+# Create wordcloud visualization
 ```{r}
 # Wordcloud of all of the pre & post words: Automatically splits multi-word token elements
 kwic_df_full %>%
