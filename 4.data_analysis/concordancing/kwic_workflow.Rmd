@@ -45,6 +45,7 @@ lowercase <- FALSE
 # Size of the context window in which concordances will be found.
 max_words_context <- 5 
 # Which UPOS do we include? The fewer the faster the script.
+# By default, we exclude symbols, prepositions, connections, particles, interjections.
 upos_filter <-
   c(
     "VERB",
@@ -54,14 +55,15 @@ upos_filter <-
     "PUNCT",
     "ADV",
     "NUM",
-    "ADP",
     "AUX",
     "PRON",
-    "CCONJ",
-    "SCONJ",
-    "INTJ",
-    "DET",
-    "PART"
+    # "ADP",
+    # "CCONJ",
+    # "SCONJ",
+    # "INTJ",
+    # "PART",
+    # SYM,
+    "DET"
   )
 # Choose which columns will the wordloud visualize. By default, we include both. 
 context_direction <- c("pre", "post") 
