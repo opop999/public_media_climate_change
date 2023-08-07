@@ -1,10 +1,24 @@
 ''' Czech stemmer
-Copyright © 2010 Luís Gomes <luismsgomes@gmail.com>.
-
-Ported from the Java implementation available at:
+This module provides functions for stemming Czech words. It is a port of the Java implementation available at:
     http://members.unine.ch/jacques.savoy/clef/index.html
 
+Copyright © 2010 Luís Gomes <luismsgomes@gmail.com>.    
+
+Functions:
+- cz_stem_list(input_list, aggressive=False): Returns a list of stemmed words from the input list.
+- cz_stem(word, aggressive=False): Returns the stemmed version of the input word.
+
+Usage:
+- Import the module.
+- Call the desired function with the appropriate arguments.
+
+Example:
+    import czech_stemmer
+    stemmed_list = czech_stemmer.cz_stem_list(["hledat", "hledání", "hledá", "hledal", "hledají"])
+    print(stemmed_list)
+    # Output: ['hled', 'hledan', 'hled', 'hled', 'hledaj']
 '''
+
 import re
 import sys
 

@@ -1,3 +1,21 @@
+get_count_per_media - Extracts the number of articles for a given search string, date range, media history ID, section, media ID, and media name using the Newton API. It returns a list of counts for each section.
+
+Parameters:
+- search_string: A character string representing the search query.
+- min_date: A character string representing the start date of the search range in the format "YYYY-MM-DD HH:MM:SS".
+- max_date: A character string representing the end date of the search range in the format "YYYY-MM-DD HH:MM:SS".
+- media_history_id_vector: A character or numeric vector representing the media history IDs to search.
+- section_vector: A character vector representing the sections to search.
+- media_id_vector: A character or numeric vector representing the media IDs to search.
+- media_name: A character vector representing the names of the media to search.
+- duplicities: A logical value indicating whether to include duplicate articles in the count.
+- newton_api_token: A character string representing the Newton API token.
+- log: A logical value indicating whether to log the extraction process.
+- log_path: A character string representing the path to the log file.
+
+Returns:
+- A list of counts for each section.
+
 get_count_per_media <- function(search_string = "*", min_date, max_date, media_history_id_vector, section_vector, media_id_vector, media_name, duplicities = FALSE, newton_api_token, log = TRUE, log_path = "") {
 
   # 0. Load libraries ------------------------------------------

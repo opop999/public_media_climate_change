@@ -1,3 +1,20 @@
+# Function to interact with NameTag's API for named entity recognition
+# 
+# This function interacts with NameTag's API to perform named entity recognition on a given text. It takes in an article ID and text, and returns a data frame with the recognized named entities. The function also has options for logging and returning the output as a list instead of a data frame.
+# 
+# Parameters:
+#   article_id: A character vector of article IDs.
+#   article_text: A character vector of article texts.
+#   log: A logical value indicating whether to print log output to a file. Default is TRUE.
+#   log_path: A character string indicating the path to the log file. Default is an empty string.
+#   return_df: A logical value indicating whether to return the output as a data frame or a list. Default is TRUE.
+# 
+# Returns:
+#   A data frame or a list of data frames with the recognized named entities.
+# 
+# Examples:
+#   nametag_process(article_id = c("1", "2"), article_text = c("This is an example text.", "This is another example text."))
+
 # 0. Load libraries ------------------------------------------
 
 # Package names

@@ -12,12 +12,16 @@
 
   # Packages loading
   invisible(lapply(packages, library, character.only = TRUE))
-
 ```
 
 1.  Extraction of counts for each of the media section in the selected timeframe
 
 ```{r}
+# This script extracts the counts of media sections for two media outlets from a dataset containing the sections and their respective media history IDs and media IDs. 
+# The function get_count_per_media is used to extract the counts for each section. 
+# The resulting list is transformed into a dataset and saved to a file named "czech_tv_sections_with_counts.rds". 
+# The script requires the get_count_per_section.R script and a Newton API token to run.
+
 # Source the respective function
 source("get_count_per_section.R")
 
@@ -46,6 +50,15 @@ saveRDS(section_count_df, "data/czech_tv_sections_with_counts.rds")
 2.  Extraction of full media articles for CT 1 & CT 24
 
 ```{r}
+# This script extracts full articles from two Czech media outlets (CT24 and CT1) for a specified time period. 
+# The time period is divided into smaller chunks, each containing no more than 10,000 articles. 
+# The extracted data is saved in separate RDS files for each time period and media outlet. 
+# The script uses the `extract_full_articles` function from the `get_full_articles.R` script to extract the data. 
+# The function takes the minimum and maximum dates, media history ID, media ID, Newton API token, and path to log as input parameters. 
+# The script also triggers garbage collection after each media outlet extraction and logs the extraction process in the `docs/` folder. 
+# The script uses the `Sys.sleep` function to pause between loops and avoid overloading the server. 
+# The script measures the time taken to extract data for each media outlet and prints it to the console.
+
 # Source the respective function
 source("get_full_articles.R")
 
@@ -109,6 +122,10 @@ for (o in seq_along(media_list[["name"]])) {
 3. Extraction of article annotations by section
 
 ```{r}
+# This script extracts annotated articles from a dataset with article counts per sections. 
+# The period of interest is separated into smaller chunks, which should never exceed 10,000 articles per period. 
+# The extracted articles are saved to a list and then combined into a single dataframe, which is saved as an RDS file. 
+# The script also measures the time it takes to extract all articles.
 # Source the respective function
 source("get_annotated_articles_per_section.R")
 
@@ -175,6 +192,10 @@ saveRDS(
 4. Data Validity Check
 
 ```{r}
+# This code reads in annotated and full articles datasets.
+# It then identifies which Czech media articles are contained in one dataset but are missing from the other. 
+# It also identifies any duplicates in the annotated articles dataset based on the "code" column. 
+
 # Load annotations dataset by reading existing .rds chunks
 annotated_articles_df <- list.files(path = "data/annotated_articles/", pattern = ".rds", full.names = TRUE) %>% 
         map_dfr(readRDS)

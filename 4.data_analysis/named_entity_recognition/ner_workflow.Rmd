@@ -1,6 +1,9 @@
 ---
 title: "Named Entity Recognition of regex-cleaned chunks with NAMETAG model (via API)"
 ---
+# This R Markdown file named performs Named Entity Recognition (NER) on chunks of text using the NAMETAG model via API. 
+# It loads necessary packages, sets up parameters for parallelization, runs the script as an RStudio job, and analyzes the result of NER. 
+# It also includes visuals for the whole corpus and analysis for only the climate-related corpus. 
 
 ## Load necessary packages
 ```{r include=FALSE}
@@ -33,11 +36,15 @@ invisible(lapply(packages, library, character.only = TRUE))
 
 # Load climate article doc ids for further filtering
 climate_article_ids <- readRDS("../../2.data_transformations/data/climate_sub_corpus/climate_article_ids.rds")
-
 ```
 
 ## Using RStudio jobs to parallelize 
 ```{r}
+# This code sets up parameters for named entity recognition (NER) job, identifies dataset chunks of interest, filters for already existing files, and runs the script as a RStudio job using the `rstudioapi::jobRunScript()` function.
+# The `ner_period` variable specifies the period of interest for NER, while `ner_exclude` is a logical variable that determines whether to exclude or include the specified period. 
+# The `already_ner_processed` variable contains a list of files that have already been processed for NER. 
+# The `all_chunks_path_ner` variable identifies all dataset chunks of interest, while the `setdiff()` function filters for files that have not yet been processed. 
+
 # Set up parameters for this job
 ner_period <- "*"
 ner_exclude <- FALSE
@@ -64,12 +71,26 @@ rstudioapi::jobRunScript(path = "ner_rstudio_jobs.R", importEnv = TRUE)
 
 # Analysis of the result of NER 
 ```{r}
+# This code reads in named entity recognition (NER) processed chunks and filters them based on the entity types of interest. 
+# It then counts the frequency of the top 10% most common entities and selects those with a word count between 1 and a specified maximum. 
+# The selected entities are then separated into individual words and any punctuation or digits are replaced with NA. 
+# Finally, the resulting dataframe is saved as an RDS file. 
+# Parameters:
+# - max_words: the upper limit for the number of words that an entity can consist of
+# - stemming_aggressive: a boolean value indicating whether aggressive stemming should be used
+# - ner_period: the type of NER processing to use
+# - period_exclude: a boolean value indicating whether to exclude periods from the NER processing
+# - entity_types: a vector of entity types to filter for
+# - ner_chunks_paths: a list of file paths to the NER-processed chunks
+# - czech_tv_presenters: a dataframe of Czech TV presenters
+# - ner_tokens_df_filtered: a dataframe of filtered NER tokens
+
 max_words <- 5L # Set up the upper limit for the number of words that entity can consist of
 columns <- paste0("word_", 1:max_words)
 stemming_aggressive <- FALSE # Sets two levels of stemming within the Python script
 ner_period <- "nametag_regex" 
 period_exclude <- FALSE
-entity_types <- c("P", "io", "ic", "if", "gc", "gr", "gt", "gu")
+entity_types <- c("P", "io", "ic", "if", "gc", "gr", "gt", "gu") # Select entity of interest: https://ufal.mff.cuni.cz/~strakova/cnec2.0/ne-type-hierarchy.pdf
 ner_chunks_paths <- list.files(path = "data", pattern = "*.rds", full.names = TRUE)
 czech_tv_presenters <- readRDS("../topic_modeling/data/czech_tv_presenters.rds")
 
@@ -78,7 +99,7 @@ ner_tokens_df_filtered <-
   mclapply(ner_chunks_paths[grep(pattern = ner_period, ner_chunks_paths, invert = period_exclude)], readRDS, mc.cores = detectCores() - 1) %>%
   bind_rows() %>% 
   lazy_dt() %>% 
-  filter(ent_type %in% entity_types) %>%  # Select entity of interest: https://ufal.mff.cuni.cz/~strakova/cnec2.0/ne-type-hierarchy.pdf
+  filter(ent_type %in% entity_types) %>%  
   count(ent_text) %>% 
   slice_max(order_by = n, prop = 0.1) %>% 
   as_tibble() %>% 
@@ -96,12 +117,30 @@ ner_tokens_df_filtered <-
 
 saveRDS(ner_tokens_df_filtered, "ner_tokens_df_filtered.rds")
 
+# gc() chunk clears the memory.
+# This is necessary because the NER-processed chunks are quite large and take up a lot of RAM.
 gc()
+```
 
+# Lemmatization of the result of NER: OPTIONAL - CURRENTLY UNUSED
+```{r}
+# This code performs lemmatization on the named entities extracted from the 'ner_df' data frame using the 'udpipe' package. 
+# The 'udpipe' function takes the 'ent_text' column from 'ner_df' as input and returns the lemmatized tokens.
+# The 'parallel.cores' argument is set to use all available cores except one for faster processing. 
+# The 'object' argument specifies the language model to be used for lemmatization, which is 'czech-pdt' in this case.
 # lemmatize <- udpipe(x = c("token_" = ner_df$ent_text), parallel.cores = parallel::detectCores() - 1, object = "czech-pdt")
+```
+
+# Stemming of the result of NER
+```{r}
+# We interact with Python using the reticulate package.
+# This code imports a custom stemming script into Python and uses it to process all columns of interest in the ner_tokens_df_filtered dataframe.
+# It also stems the names of TV presenters and summarizes the top entities that appear in the dataset, excluding the stemmed names of TV presenters.
+# Finally, it saves the summary as an RDS file.
 
 # Import custom stemming script into Python
 reticulate::py_run_string("from czech_stemmer import cz_stem_list")
+
 # Process all columns of interest with this script
 reticulate::py_run_string("r.ner_tokens_df_filtered = r.ner_tokens_df_filtered.apply(lambda x: cz_stem_list(x, r.stemming_aggressive) if x.name in r.columns else x)")
 
@@ -116,12 +155,16 @@ ner_summary <-  ner_tokens_df_filtered %>%
   {aggregate(x = .['n'], by = .['ent_text_stemmed'], FUN = sum)} %>% 
   arrange(desc(n))
 
+# Save the summary as an RDS file
 saveRDS(ner_summary, "ner_summary.rds")
-
 ```
 
 # Visuals: whole corpus
 ```{r}
+# This code generates a bar plot of the top 30 most frequent named entities in a dataset of Czech Television news articles from January 2012 to April 2022.
+# The named entities are identified using named entity recognition (NER) and are stemmed. 
+# The plot is saved as a PNG file with custom dimensions.
+
 plot_counts_ner <- ner_summary %>%
   slice_max(n, n = 30) %>%
   transmute(
@@ -151,8 +194,13 @@ plot_counts_ner <- ner_summary %>%
 finalise_plot(plot_counts_ner, source_name = "Source: Newton Media Archive, January 2012-April 2022. N=531,592.", save_filepath = "visuals/ner_counts.png", height_pixels = 850)
 ```
 
-# Analysis: only climate-related corpus
+# Climate news-related subcorpus
+
+## Climate news-related subcorpus: data preparation
 ```{r}
+# This code reads in NER-processed chunks, filters them by entity type and document ID, counts the occurrences of each entity, and saves the resulting data frame as an RDS file. 
+# The resulting data frame contains columns for each entity type specified in the 'columns' vector, with each row representing a unique entity occurrence. 
+# Punctuation and digits can be optionally replaced with NA values.
 # Read the NER-processed chunks back in
 ner_tokens_df_filtered_climate <-
   mclapply(ner_chunks_paths[grep(pattern = ner_period, ner_chunks_paths, invert = period_exclude)], readRDS, mc.cores = detectCores() - 1) %>%
@@ -175,7 +223,10 @@ ner_tokens_df_filtered_climate <-
   as_tibble()
 
 saveRDS(ner_tokens_df_filtered_climate, "ner_tokens_df_filtered_climate.rds")
+```
 
+## Climate news-related subcorpus: stemming and summary
+```{r}
 # Import custom stemming script into Python
 reticulate::py_run_string("from czech_stemmer import cz_stem_list")
 # Process all columns of interest with this script
@@ -192,8 +243,13 @@ ner_summary_climate <-  ner_tokens_df_filtered_climate %>%
 saveRDS(ner_summary_climate, "ner_summary_climate.rds")
 ```
 
-# Visuals: only climate-related articles
+## Climate news-related subcorpus: visuals
 ```{r}
+# This code generates a bar plot of the top 30 most frequent named entities (NER) in the climate subcorpus. 
+# The named entities are stemmed and the plot is created using ggplot2. 
+# The plot is styled using the BBC style and saved as a PNG file. 
+# The function `finalise_plot()` is used to add the source information and save the plot to a file. 
+
 plot_counts_ner_climate <- ner_summary_climate %>%
   slice_max(n, n = 30) %>%
   transmute(

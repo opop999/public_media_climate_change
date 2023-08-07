@@ -1,5 +1,31 @@
-# This function extracts media articles according to selected criteria.
-# The output is a list of datasets, which contain article title and annotation.
+# This function extracts annotated news articles from the Newton Media API based on the specified search criteria.
+# The function returns a list of datasets, which contain article title and annotation.
+# 
+# Arguments:
+#   - search_string: A character string specifying the search query.
+#   - page_size: An integer specifying the number of articles to retrieve per API call.
+#   - min_date: A character string specifying the minimum date for the search query in the format "YYYY-MM-DD HH:MM:SS".
+#   - max_date: A character string specifying the maximum date for the search query in the format "YYYY-MM-DD HH:MM:SS".
+#   - country: An integer specifying the country ID for the search query (1 for Czech Republic, 2 for Slovakia).
+#   - sort: An integer specifying the sorting order for the search query (1 for relevance, 2 for date descending, 3 for date ascending).
+#   - section: A character string specifying the section of the news articles to retrieve (optional).
+#   - media_history_id: An integer specifying the media history ID for the search query (optional).
+#   - duplicities: A logical value indicating whether to include duplicate articles in the search results.
+#   - newton_api_token: A character string specifying the API token for the Newton Media API.
+#   - return_df: A logical value indicating whether to return the extracted articles as a data frame (default is TRUE).
+#   - log: A logical value indicating whether to log the progress of the extraction process (default is TRUE).
+#   - log_path: A character string specifying the file path for the log file (optional).
+# 
+# Returns:
+#   A data frame with the extracted news articles.
+# 
+# Examples:
+#   extract_annotated_articles_by_section(search_string = "climate change",
+#                                          min_date = "2021-01-01 00:00:00",
+#                                          max_date = "2021-12-31 23:59:59",
+#                                          country = 1,
+#                                          sort = 2,
+#                                          newton_api_token = "your_api_token_here")
 
 extract_annotated_articles_by_section <- function(search_string = "*",
                                                   page_size = 10000,

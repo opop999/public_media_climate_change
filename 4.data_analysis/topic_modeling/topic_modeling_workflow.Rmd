@@ -1,6 +1,13 @@
 ---
-title: "Topic modeling"
+title: "Topic modeling of Czech television news articles related to climate change"
 ---
+
+# This R Markdown file contains code for topic modeling of Czech television news articles related to climate change. 
+
+# The code loads necessary packages, processes the text data, prunes the vocabulary, and performs LDA topic modeling. 
+# The resulting topic models are saved as RDS files and visualized using LDAvis. 
+# The code also creates a stop list of journalists of Czech television and removes their names from the text data. 
+# The resulting topic models can be used to explore the main topics discussed in the news articles related to climate change.
 
 ## Load necessary packages
 ```{r include=FALSE}
@@ -15,15 +22,25 @@ if (any(installed_packages == FALSE)) {
 
 # Packages loading
 invisible(lapply(packages, library, character.only = TRUE))
-
 ```
 
-
+# Create a data frame of lemmatized text data
 ```{r}
+# This code reads in a list of files containing preprocessed text data, filters out non-relevant parts of speech, 
+# removes certain types of named entities, and combines the remaining lemmas into a single text string for each document. 
+# The resulting data is returned as a tibble. This process is parallelized using the mclapply function from the parallel package.
+# The parallelization can only be used on Linux and Mac OS X systems.
+
 udpipe_chunks <- list.files(path = "../../2.data_transformations/data/udpipe_processed/", pattern = "*.rds", full.names = TRUE)
 
 process_df <- function(i) {
   
+  # This code reads an RDS file and filters the data based on the "upos" column, keeping only rows where "upos" is "NOUN", "ADJ", or "PROPN". 
+  # It then removes rows where the "feats" column contains the string "NameType=Giv". 
+  # The "lemma" column is then cleaned by removing non-alphabetic characters, converting to lowercase, and removing missing values. 
+  # Rows where the length of "lemma" is less than or equal to 1 are filtered out. 
+  # The resulting data is grouped by "doc_id" and summarized by concatenating the "lemma" column into a single string. 
+  # Finally, the data is converted to a tibble and returned.
   readRDS(i) %>% 
     lazy_dt() %>% 
     filter(upos %in% c("NOUN", "ADJ", "PROPN")) %>%
@@ -35,7 +52,10 @@ process_df <- function(i) {
     ungroup() %>% 
     as_tibble()
 
+
 }
+# On Windows, the parallelization can be replaced by the following code:
+# combined_df <- lapply(udpipe_chunks, process_df) %>% bind_rows()
 
 combined_df <- mclapply(udpipe_chunks, process_df, mc.cores = detectCores() - 1) %>% bind_rows()
 
@@ -44,14 +64,17 @@ combined_df <- mclapply(udpipe_chunks, process_df, mc.cores = detectCores() - 1)
 #   summarize(text = str_squish(str_c(lemma, collapse = " "))) %>%
 #   ungroup() %>% 
 #   as_tibble()
-
+# The commented out code above can be used to combine the lemmas into a single string for each document.
 ```
 
-
+# Create a stop list of journalists of Czech television to filter out their names from the text data
 ```{r}
 # To create a stop list of journalists of Czech television, we try to extract them from the full text.
 full_chunks_paths <- list.files(path = "../../1.data_extraction/data/full_articles", pattern = "*.rds", full.names = TRUE)
 
+# This function reads an RDS file located at `full_chunk_path` and extracts the presenter names from the `Content` column.
+# It then converts the names to lowercase, removes any names with a dash, and filters out names with less than 3 characters. 
+# Finally, it returns a vector of presenter names.
 get_tv_presenters <- function(full_chunk_path) {
   readRDS(full_chunk_path) %>% 
     transmute(presenter_name = tolower(word(gsub("<.*>", "", str_extract(Content, "^([^,]+)")), start = 2L, end = 2L))) %>% 
@@ -65,20 +88,20 @@ saveRDS(czech_tv_presenters, "data/czech_tv_presenters.rds")
 
 ```
 
-
-Pruning of the vocabulary
+# Pruning of the Vocabulary: Remove rare and common terms
 ```{r}
+# This code block creates a document-term matrix (DTM) using the "dtm_builder" function from the "topicmodels" package. 
+# The DTM is built from the "text" column of the "combined_df" data frame, which contains the preprocessed text data. 
+# The "doc_id" column is used to identify each document in the DTM. The resulting DTM is stored in the "dtm_udpipe" object.
 dtm_udpipe <- dtm_builder(data = combined_df, text = "text", doc_id = "doc_id")
 
 saveRDS(dtm_udpipe, "data/dtm_udpipe_adj_propn.rds")
-
 
 # Load stop word lists
 stop_words_cs <- fromJSON("data/stopwords_cs.json")
 stop_words_czech_television <- c(readRDS("data/czech_tv_presenters.rds"), "moderátorka", "moderátor", "redaktorka", "redaktor")
 
-
-# Remove terms that are in  
+# OPTIONAL WORFLOW: Remove terms with low tf-idf scores
 # low_tf_idf <- dtm_udpipe %>%
 #   dtm_melter %>%
 #   bind_tf_idf(term, doc_id, freq) %>% 
@@ -87,10 +110,11 @@ stop_words_czech_television <- c(readRDS("data/czech_tv_presenters.rds"), "moder
 #   slice_min(tf_idf_mean, prop = 0.05) %>%
 #   pull(term)
 
-
 # dtm_stats(dtm_udpipe)
 
-
+# This code chunk loads a document term matrix (dtm) and applies stop words to remove common words that do not add meaning to the text. 
+# It then checks for the presence of climate related items in the dtm and calculates some statistics. 
+# Finally, it saves the resulting dtm to a file named "dtm_less_sparse_adj_propn.rds".
 dtm_less_sparse <- dtm_stopper(dtm_udpipe,
                                stop_list = c(stop_words_cs, stop_words_czech_television),
                                stop_hapax = TRUE,
@@ -102,14 +126,20 @@ dtm_less_sparse <- dtm_stopper(dtm_udpipe,
 # Check for presence of climate related items
 colnames(dtm_less_sparse)[grep(x = colnames(dtm_less_sparse), pattern = "klim.*")]
 
-
 dtm_stats(dtm_less_sparse)
 
 saveRDS(dtm_less_sparse, "data/dtm_less_sparse_adj_propn.rds")
 
 ```
 
+# Topic Modeling using LDA
 ```{r}
+# This code defines a function to perform topic modeling using LDA (Latent Dirichlet Allocation) algorithm on a document-term matrix.
+# The function takes an integer argument 'i' which specifies the number of topics to be generated.
+# The function saves the resulting document-topic distribution and the LDA model to RDS files.
+# The function also generates a plot of the LDA model and saves it as a GitHub Gist (the plot is an HTML file).
+# The function uses parallel processing to speed up the computation.
+# The resulting models and plots can be used for further analysis and visualization of the topics.
 topics_n <- seq(10, 50, 5)
 
 lda_topic_modeling <- function(i) {
@@ -137,12 +167,13 @@ lda_topic_modeling <- function(i) {
     gc()
   
 }
-
+# For Windows users, replace the following line with the following:
+# invisible(lapply(topics_n, lda_topic_modeling)
 invisible(mclapply(topics_n, lda_topic_modeling, mc.cores = detectCores() - 1))
 
 ```
 
-
+# Model Evaluation
 ```{r}
 # The lower perplexity the better. 
 # 535 for 10 topic vs 394 for 30 topic vs 334 for 50 topic.
@@ -167,7 +198,6 @@ lda_model$plot(out.dir = "plot", as.gist = TRUE)
 # 
 # gist_create(file.path(out.dir, list.files(out.dir))), filename = "topic_20"))
 
-
 barplot(
   doc_topic_distribution[1,],
   xlab = "topic",
@@ -188,33 +218,46 @@ barplot(
 
 ```{r}
 # Optional: remove the lowest 5% tf-idf scores https://arxiv.org/pdf/1701.03227.pdf
-
-
-
 # dtm_tfidf[,dtm_tfidf[,colMeans(dtm_tfidf, na.rm = TRUE) > quantile(colMeans(dtm_tfidf , na.rm = TRUE), probs = 0.05, names = FALSE)]]
     
 ```
 
-# https://github.com/zdebruine/RcppML
 ```{r}
-# DEVEL version devtools::install_github("zdebruine/RcppML")   
-# 
-
 # topic_word_distribution_nfm[1,] %>% sort(decreasing = TRUE) %>% head(20)
 
-# Calculate mean squared error for an NMF model
-# evaluate(model_nfm, dtm_less_sparse)
 
-# Function to plot NMF Model
+# Function to plot NMF Model, which is composed of several sub-functions
+# 
+# This function plots an NMF model using the LDAvis library. 
+# Since LDAVis does not support NMF model visualizations natively, we need to find a workaround. The function takes in an NMF model, a document-term matrix, and an optional topic-word distribution matrix. If the topic-word distribution matrix is not provided, the function will predict it using the NMF model and the document-term matrix. The function then normalizes the matrices, creates a JSON object, and visualizes it using LDAvis::serVis. The function also accepts additional arguments that can be passed to LDAvis::serVis.
+# 
+# Args:
+#   model: An NMF model object.
+#   dtm: A document-term matrix.
+#   topic_word_distribution: An optional topic-word distribution matrix.
+#   ...: Additional arguments to be passed to LDAvis::serVis.
+# 
+
 plot_nmf <-
   function(model, dtm, topic_word_distribution = NULL, ...) {
+    # This code block checks if the "LDAvis" package is installed and if the topic_word_distribution matrix is null or not a matrix.
+    # If the matrix is null or not a matrix, it predicts the topic_word_distribution using the model and dtm.
     if ("LDAvis" %in% rownames(installed.packages())) {
       if (is.null(topic_word_distribution) |
           !is.matrix(topic_word_distribution)) {
         topic_word_distribution <- predict(model, dtm)
       }
       
-      # FUN to normalize matrix
+      # Function to normalize matrix
+      # 
+      # This function normalizes a matrix using either L1 or L2 normalization, or no normalization at all.
+      # 
+      # Args:
+      #   m: A matrix or sparseMatrix object to be normalized.
+      #   norm: A character string indicating the type of normalization to be applied. Can be "l1", "l2", or "none".
+      # 
+      # Returns:
+      #   A normalized matrix or sparseMatrix object.
       norm_matrix <- function(m, norm = c("l1", "l2", "none")) {
         stopifnot(is(m, "matrix") || is(m, "sparseMatrix"))
         norm = match.arg(norm)
@@ -231,7 +274,10 @@ plot_nmf <-
       }
       
       
-      # Viz
+      # This code block creates a JSON object with various parameters for topic modeling. 
+      # The parameters include normalized matrices for topic-word distribution and document-topic distribution, 
+      # document length, vocabulary, term frequency, lambda step, topic reordering, and multidimensional scaling method.
+      # The resulting JSON object can be used for further analysis and visualization of the topic model.
       json <- createJSON(
         phi = norm_matrix(topic_word_distribution, "l1"),
         theta = norm_matrix(model@w, "l1"),
@@ -243,6 +289,7 @@ plot_nmf <-
         mds.method = jsPCA_robust
       )
       
+      # Visualize the JSON object - this should function in the same way as the LDA model visualization
       LDAvis::serVis(json, ...)
       
     }
@@ -251,6 +298,8 @@ plot_nmf <-
 ```
 
 
+# For NMF topic modeling, we will use RcppML library: https://github.com/zdebruine/RcppML
+# Install dev version devtools::install_github("zdebruine/RcppML")   
 ```{r}
 topics_n <- seq(10, 50, 5)
 
@@ -283,10 +332,22 @@ nmf_topic_modeling <- function(i) {
 
 invisible(lapply(topics_n, nmf_topic_modeling))
 
+# Calculate mean squared error for an NMF model
+# evaluate(model_nfm, dtm_less_sparse)
+
 ```
 
 Optional: subset by climate sub-corpus
 ```{r}
+# This code performs topic modeling on a subset of documents related to climate change. 
+# It reads in a list of document ids, filters the combined_df dataframe to only include those documents, 
+# and creates a document-term matrix (DTM) using the dtm_builder function. 
+# The DTM is then processed using the dtm_stopper function to remove stop words and hapax legomena, 
+# and to filter out documents with very low or high word frequency. 
+# Two topic modeling algorithms are then applied to the processed DTM: LDA and NMF. 
+# The LDA model is fit using the LDA$new function, and the resulting topic distribution is plotted using the plot function. 
+# The NMF model is fit using the nmf function, and the resulting topic-word distribution is used to create a JSON object 
+# that is visualized using the LDAvis::serVis function. Finally, the intertopic distance is optionally plotted using ggplot.
 climate_doc_id <- readRDS("../../2.data_transformations/data/climate_sub_corpus/climate_article_ids.rds")
 
 climate_df <- combined_df[combined_df$doc_id %in% climate_doc_id,]
@@ -302,7 +363,7 @@ climate_dtm <-
     stop_docprop = c(0.005, 0.99)
   )
 
-# LDA
+# LDA model fit and plot
     climate_lda_model <- LDA$new(n_topics = 20)
 
     set.seed(3859L)
@@ -319,15 +380,14 @@ climate_dtm <-
 
 colSums(climate_dtm)["stát"]   
 
-# NFM
-
+# NFM model fit and plot
 tf_idf_model <- TfIdf$new()
 climate_dtm_tfidf <- fit_transform(dtm_less_sparse, tf_idf_model)
 
 climate_model_nmf <- nmf(climate_dtm_tfidf, k = 20, seed = 3859L, maxit = 1000, tol = 0.001)
 topic_word_distribution <- predict(climate_model_nmf, climate_dtm_tfidf)
 
-    
+# Since LDAVis library does not support NMF visualizations natively, we need to create a JSON object from the topic-word distribution    
 json_nmf <- createJSON(
         phi = norm_matrix(topic_word_distribution, "l1"),
         theta = norm_matrix(climate_model_nmf@w, "l1"),
@@ -339,9 +399,8 @@ json_nmf <- createJSON(
         mds.method = jsPCA_robust
       ) 
 
-
+# Visualize the JSON object - this should function in the same way as the LDA model visualization
 LDAvis::serVis(json_nmf)
-
 
 # Optionally use ggplot to plot the intertopic distance
 json_obj <- jsonlite::fromJSON(json_nmf) 
@@ -369,7 +428,12 @@ rowSums(nmf_model_adj_propn_10@w[1:10,])
 
 # Exploratory analyses on the results of the chosen model: NMF 20
 ```{r}
-# In this script we try to analyze the results of topic modeling using NMF with k=20.
+# This script analyzes the results of topic modeling using NMF with k=20. 
+# It reads in the predicted topic-word distribution of the 20 topic NMF model created with the RccpML nmf() function. 
+# It then identifies which topics contain the words of interest and what are the associated probabilities. 
+# Finally, it gets the ranking of the word in each topic and prints it to the console. 
+# Additionally, it loads the LDA model and prints the probability of the word "klimatický" in each topic, and plots the LDA model with the top 100 words in each topic.
+
 options(scipen = 999)
 library(tidyverse)
 library(knitr)
@@ -420,7 +484,7 @@ apply(nmf_topic_word, 1, function(x) {
 
 }
 
-# LDA model
+# LDA model with k=50
 LDA_topic_word_distribution_adj_propn_50 <- lda_model_adj_propn50$topic_word_distribution
 rownames(LDA_topic_word_distribution_adj_propn_50) <- paste0("topic_", 1:50)
 
@@ -429,4 +493,3 @@ LDA_topic_word_distribution_adj_propn_50[,"klimatický"] %>% sort(decreasing = T
 lda_model_adj_propn50$plot(R = 100, reorder.topics = TRUE)
 
 ```
-

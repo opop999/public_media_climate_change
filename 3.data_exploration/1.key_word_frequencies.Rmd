@@ -1,3 +1,10 @@
+# This R Markdown file contains code for analyzing the frequency of key words related to climate change,
+# including "klima", "globální oteplování", "skleníkový efekt", and "uhlíková stopa". 
+# The code loads necessary libraries, specifies paths, defines term counting functions, runs the function on a chunk-to-chunk basis, 
+# summarizes the key term count per year, and visualizes the terms and their frequencies. 
+# The code also includes a visualization of just the main four terms.
+# The output of the code includes a table of the term counts per year and two plots showing the frequency of the key terms over time.
+
 # Question 1: What was the frequency of the following key words per year and the whole period?
 
 „klima“, „globální oteplování“, „skleníkový efekt“, „uhlíková stopa“.
@@ -32,10 +39,25 @@ list_of_processed_chunks <- list.files(path = "../2.data_transformations/data/ud
 
 ## Specify term counting function
 ```{r}
+# This function counts the frequency of a given term in a vector of text.
+# Args:
+#   text_vector: A vector of text to search for the given term.
+#   term: A string representing the term to search for.
+# Returns:
+#   An integer representing the frequency of the given term in the text vector.
+# Example:
+#   count_terms_of_interest(c("The quick brown fox", "jumps over the lazy dog"), "the")
+#   # Output: 2
+
 count_terms_of_interest <- function(text_vector, term) {
   str_count(text_vector, regex(term))
 }
 
+# This function reads in a chunk of data from a specified path and performs text analysis on it.
+# It filters the text by parts of speech (ADJ, NOUN, PUNCT), converts all lemmas to lowercase, and joins the data with a document ID by date. 
+# It then calculates the frequency of various climate-related terms in the text, 
+# including "klima", "oteplování", "globální oteplování", "skleníkový efekt", "uhlíkový stopa", "ekologický", "klimatický", "uhlí", and "počasí". 
+# The function returns a data frame with the document ID, year, and the frequency of each term in the text.
 get_term_counts <- function(chunk_path) {
   text_stats <- chunk_path %>%
     readRDS() %>%
@@ -85,6 +107,8 @@ saveRDS(term_counts_df, "data/term_counts_df.rds")
 
 ## Summarize the key term count per year
 ```{r}
+# This code chunk groups the term counts by year and summarizes the counts for each term.
+# The resulting data frame has one row for each year, with columns for each term and the count of that term for that year.
 term_counts_per_year <- term_counts_df %>%
   group_by(year) %>%
   summarise(
@@ -99,16 +123,29 @@ term_counts_per_year <- term_counts_df %>%
     n_weather = sum(weather_count)
   ) %>%
   ungroup() %>%
+  # Add a row with the total counts for each term across all years
   bind_rows(summarise(
     ., across(where(is.numeric), sum),
     across(where(is.character), ~"Total")
   ))
 
+# This code chunk uses the kable function from the knitr package to create a table of the term counts per year in markdown format.
+# The resulting table is printed below the code chunk in the R Markdown document.
 knitr::kable(term_counts_per_year, format = "pipe")
+
 ```
 
 ## Visualize all of the terms and their frequencies
 ```{r}
+# This code reads in a data frame of term counts per year, filters out the "Total" row, 
+# pivots the data frame to a longer format, removes the "n_" prefix from the term column, 
+# and creates a grouped bar chart using ggplot2 to display the lemma occurrences per year. 
+# The x-axis represents the year, the y-axis represents the count of lemma occurrences, 
+# and the fill represents the lemma term. The chart is displayed with a minimal theme, 
+# a continuous y-axis with breaks and labels every 500 counts, and a color palette from 
+# the RColorBrewer package. The x-axis label is hidden, the y-axis label is "Lemma occurrences per year", 
+# and the fill legend is blank.
+
 term_counts_per_year %>%
   filter(year != "Total") %>% 
   pivot_longer(where(is.numeric), values_to = "count", names_to = "term") %>% 

@@ -1,7 +1,14 @@
 ---
 title: "Sub-corpus creation"
 ---
-Load necessary packages
+# This R Markdown file creates a sub-corpus of articles related to climate change. 
+# It loads necessary packages, defines a regex search string based on suggestions from area experts,
+# identifies UDPIPE-processed chunks of interest, extracts all of the documents that match the regex search string, 
+# and exports the sub-corpus with texts (optional). 
+# The exported sub-corpus is saved as a CSV file (when with texts) or RDS (when without) in the specified directory.
+# The CSV file can be uploaded to Google Sheets and used for manual annotation and review.
+
+# Load necessary packages
 ```{r include=FALSE}
 # Package names
 packages <- c("dplyr", "stringr", "readr")
@@ -25,6 +32,8 @@ path_to_input <- "data/udpipe_processed"
 
 ```
 
+# Identify UDPIPE-processed chunks of interest and define function, 
+# which extracts all of the documents that match the regex search string
 ```{r}
 # Identify UPIPE-processed chunks of interest
 udpipe_chunks_path <- list.files(path = file.path(path_to_input),
@@ -47,6 +56,7 @@ get_climate_articles <- function(udpipe_chunk_path) {
 }
 ```
 
+# Iterate over the list of UDPIPE chunks and extract all of the documents that match the regex search string
 ```{r}
 # Iterate over the list of UDPIPE chunks
 # If on Linux, we use the parallelized version of lapply
@@ -67,7 +77,7 @@ saveRDS(climate_article_ids, "data/climate_sub_corpus/climate_article_ids.rds")
 
 ```
 
-Optional: Export sub-corpus with texts
+Optional: Export sub-corpus with texts to upload to Google Sheets for manual annotation and review
 ```{r}
 
 climate_article_ids <- readRDS("data/climate_sub_corpus/climate_article_ids.rds")

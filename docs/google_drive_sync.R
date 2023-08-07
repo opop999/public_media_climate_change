@@ -1,4 +1,27 @@
-# 0. Load libraries ------------------------------------------
+# This script provides functions to synchronize local folders with a remote Google Drive repository.
+# It uses the 'googledrive' and 'dplyr' packages, which are installed if not already present.
+# The script contains three functions:
+#   1. fetch_remote_files: downloads files from the remote repository that are missing locally.
+#   2. backup_local_files: uploads files that are present locally but missing from the remote repository.
+#   3. synchronize_selected_folders: synchronizes a list of folders by calling the previous two functions.
+# The functions take two arguments each: the local and remote folder paths.
+# The synchronize_selected_folders function takes a list of folders, each with their own local and remote paths.
+# The script prints progress messages to the console as it synchronizes each folder.
+# Note: the 'drive_download' and 'drive_upload' functions require authentication to access the Google Drive API.
+# See the 'googledrive' package documentation for instructions on how to authenticate.
+# 
+# Example usage:
+#   folders_to_sync <- list(
+#     list(
+#       local_folder_path = "C:/Users/username/Documents/folder1/",
+#       remote_folder_path = "folder1/"
+#     ),
+#     list(
+#       local_folder_path = "C:/Users/username/Documents/folder2/",
+#       remote_folder_path = "folder2/"
+#     )
+#   )
+#   synchronize_selected_folders(folders_to_sync)
 
 # Package names
 packages <- c("googledrive", "dplyr")
@@ -59,6 +82,7 @@ backup_local_files <- function(local_folder_path, remote_folder_path) {
     print("No files on local that would be missing in remote. Sync OK.")
   }
 }
+
 # 3. Pull and Push -------------------
 
 synchronize_selected_folders <- function(list_of_folders) {

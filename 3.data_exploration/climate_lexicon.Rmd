@@ -1,3 +1,20 @@
+## Introduction
+This R Markdown file contains code for data exploration of the climate sub-corpus. The code loads necessary packages, installs packages that are not yet installed, and loads all packages. It then processes the udpipe chunks, filters the data, and combines the results into a single data frame. It also creates a stop list of journalists of Czech television and extracts proper nouns from the climate sub-corpus.
+
+## Code Description
+The code is divided into several chunks, each with a specific purpose. The first chunk loads necessary packages, installs packages that are not yet installed, and loads all packages. 
+
+The second chunk processes the udpipe chunks, filters the data, and combines the results into a single data frame. 
+
+The third chunk creates a stop list of journalists of Czech television and extracts proper nouns from the climate sub-corpus.
+
+The fourth chunk filters the data and creates a new data frame with a count of the number of times a specific string appears in the text.
+
+The fifth chunk extracts proper nouns from the climate sub-corpus and creates a new data frame with a count of the number of times a specific string appears in the text.
+
+## Conclusion
+This R Markdown file provides code for data exploration of the climate sub-corpus. The code processes the udpipe chunks, filters the data, and combines the results into a single data frame. It also creates a stop list of journalists of Czech television and extracts proper nouns from the climate sub-corpus.
+
 Load necessary packages
 ```{r include=FALSE}
 # Package names
@@ -26,8 +43,6 @@ if (any(installed_packages == FALSE)) {
 invisible(lapply(packages, library, character.only = TRUE))
 ```
 
-
-
 ```{r}
 udpipe_chunks <- list.files(path = "../2.data_transformations/data/udpipe_processed/", pattern = "*.rds", full.names = TRUE)
 
@@ -47,8 +62,6 @@ process_df <- function(i) {
 
 combined_df <- mclapply(udpipe_chunks, process_df, mc.cores = detectCores() - 1) %>% bind_rows()
 ```
-
-
 
 ```{r}
 polarization_string <- "klima|klimatista|klimatický|antropocén|globální (ohřívání|oteplování)|(ohřívání|oteplování) planety|uhlíkov\\S*|skleníkový (efekt|jev)|IPCC|UNFCCC|permafrost"
@@ -70,9 +83,6 @@ udpipe_filtered <- udpipe %>%
 
 ```
 
-
-
-
 ```{r}
 # To create a stop list of journalists of Czech television, we try to extract them from the full text.
 full_chunks_paths <- list.files(path = "../1.data_extraction/data/full_articles", pattern = "*.rds", full.names = TRUE)
@@ -88,9 +98,6 @@ czech_tv_presenters_full_names <- mclapply(full_chunks_paths, get_tv_presenters,
 
 saveRDS(czech_tv_presenters_full_names, "data/czech_tv_presenters_full_names.rds")
 ```
-
-
-
 
 # Which proper nouns appear in the climate sub-corpus?
 ```{r}
@@ -133,7 +140,6 @@ stop_words_czech_television <-
     "jana šrámková"
     ) 
 ```
-
 
 ```{r}
 udpipe_chunks <- list.files(path = "../2.data_transformations/data/udpipe_processed/", pattern = "*.rds", full.names = TRUE)
@@ -300,7 +306,6 @@ string_distance_df <-
 
 
 ```
-
 
 ```{r}
 

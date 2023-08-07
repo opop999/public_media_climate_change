@@ -1,3 +1,26 @@
+# This file contains a function that extracts full articles using the Newton API. The function takes an article code, date published, search history ID, Newton API token, and media ID as inputs. It returns a data frame with the extracted article information.
+
+# Arguments:
+# - article_code: A character string representing the article code.
+# - date_published: A character string or Date object representing the date the article was published.
+# - search_history_id: A character string or numeric value representing the search history ID.
+# - newton_api_token: A character string representing the Newton API token.
+# - media_id: An optional character string representing the media ID.
+# - return_df: A logical value indicating whether to return a data frame (TRUE) or a list (FALSE).
+# - log: A logical value indicating whether to log the extraction process.
+# - log_path: A character string representing the path to the log file.
+
+# Returns:
+# - A data frame or list with the extracted article information.
+
+# Example usage:
+# extract_full_articles_individual_new_api(article_code = "12345", date_published = "2022-01-01", search_history_id = "67890", newton_api_token = "my_token", media_id = "my_media_id", return_df = TRUE, log = TRUE, log_path = "C:/logs/")
+
+# Required packages:
+# - httr
+# - dplyr
+# - jsonlite
+
 extract_full_articles_individual_new_api <- function(article_code,
                                                      date_published,
                                                      search_history_id,

@@ -1,3 +1,6 @@
+# This script reads in preprocessed text data in chunks, processes each chunk using the NameTag API for named entity recognition,
+# and saves the resulting dataframes locally. The script pauses for approximately 10 minutes between each chunk to avoid overloading the API.
+# The resulting dataframes can be used for further analysis of named entities in the text data.
 source(file.path("ner_nametag_api.R"))
 
 for (ner_file in all_chunks_path_ner) {
@@ -19,5 +22,3 @@ for (ner_file in all_chunks_path_ner) {
   Sys.sleep(abs(rnorm(1, 600, sd = 100)))
 
 }
-
-

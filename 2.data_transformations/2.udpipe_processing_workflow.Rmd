@@ -1,6 +1,11 @@
 ---
 title: "UDPIPE Processing"
 ---
+# This R Markdown file contains code for processing regex-cleaned chunks with UDPIPE model (via API) using RStudio jobs to parallelize. 
+# It loads necessary packages and sets up parameters for the job. 
+# The already processed files are identified and the dataset chunks of interest are filtered.
+# Finally, the script is run as an RStudio job, which is saved in the file udpipe_rstudio_jobs.R.
+
 Load necessary packages
 ```{r include=FALSE}
 # Package names

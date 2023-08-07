@@ -1,4 +1,9 @@
+# This code block downloads processed sentiment and Bertopic data from Kaggle. 
+# The sentiment data was analyzed using the Czert-B LLM model with GPU acceleration. 
+# The Bertopic data is downloaded from the specified directory and moved to the appropriate location. 
+# Any log files are removed after the data is downloaded.
 Download processed sentiment data from Kaggle (where GPU acceleration was used)
+We used Kaggle for the sentiment analysis with Czert-B LLM model, where we benefited from GPU acceleration.
 ```{zsh, engine.opts='-l'}
 source ~/.zshrc
 

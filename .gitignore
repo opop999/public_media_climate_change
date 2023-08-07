@@ -1,3 +1,7 @@
+# This is a .gitignore file that specifies files and directories that should be ignored by Git when tracking changes in a repository. 
+# The file contains a list of file patterns that Git should ignore. 
+# This specific file contains patterns for ignoring history files, session data files, user-specific files, example code in package build process, output files from R CMD build and check, RStudio files, produced vignettes, OAuth2 token, knitr and R markdown default cache directories, temporary files created by R markdown, R Environment Variables, and large files related to article annotations, full versions, validity data workflow output, regex processed, udpipe processed, nametag processed, sentiment processed, and topic analysis processed.
+
 # History files
 .Rhistory
 .Rapp.history

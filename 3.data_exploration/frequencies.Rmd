@@ -1,6 +1,11 @@
 ---
 title: "Word frequencies"
 ---
+# This R Markdown file contains code for analyzing the frequency of selected lemmatized terms in Czech Television news articles from January 2012 to April 2022. 
+# The code loads necessary packages, processes the data, and creates visualizations of the frequency of the selected terms over time. 
+# The code also calculates the monthly proportion of overall documents containing at least one of the climate-terms. 
+# The resulting visualizations are saved as PNG files in the "visuals" folder.
+
 Load necessary packages
 ```{r include=FALSE}
 # Package names

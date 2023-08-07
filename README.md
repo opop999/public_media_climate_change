@@ -8,9 +8,11 @@ Irene Elmerot (Stockholm University)*
 **Project website can be found [HERE](https://climate-topics.netlify.app/)**
 
 ## A transformative journalism perspective
+This project aims to investigate how Czech public television (ČT 1 and ČT 24) covers climate change. As part of this project, we developed a computational research pipeline to analyze over 0.6 million transcripts from Czech Television between 2012 and 2022. The primary analysis for this project involved topic modeling using LDA and NMF algorithms to provide the best model determined by domain experts using lemmatized data with UDPIPE model. In addition to the primary analysis method, we also performed sentiment analysis using a pre-trained CZERT/BERT model, accelerated with GPU using Kaggle. We also developed a pipeline for keyword extraction using TF-IDF and KeyBERT from the lemmatized corpus and named entity recognition using a NameTag 2 model, which can distinguish about 50 entity categories in Czech.
 
-This is a research project examining the coverage of climate change by Czech public media outlets, ČT 1 and ČT 24.
-The repository contains scripts, data and documentation for the computational part of the overall analysis.
+As part of the public outreach, we have made the project open source.
+This GitHub repository contains all the scripts used for our analysis (except for proprietary media data).
+The project website also contains links to the visualizations of the individual topic models created.
 
 ### Project workflow diagram
 

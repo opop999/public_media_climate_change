@@ -1,3 +1,9 @@
+# This script defines a modified function from the UDPIPE package that transforms Conllu format to R's data frame. The function is used to process text data using the UDPIPE API. 
+# The function takes in a character vector in Conllu format, a character string representing the document ID, a logical value indicating whether the annotation is in UDPIPE format, and additional arguments to be passed to the function. It returns a data frame with the processed text data.
+# The script loads the required packages and installs them if they are not yet installed. The packages loaded are httr, dplyr, jsonlite, and udpipe.
+# The modified function from the UDPIPE package transforms Conllu format to R's data frame. It imports a C++ dependency from the UDPIPE package and uses it to transform the Conllu format. The function also handles additional arguments passed to it.
+# The script uses the data.table package to set the number of threads to 1. It then defines a number of variables and fields that are used in the modified function. The function uses these variables and fields to transform the Conllu format to R's data frame.
+
 # 0. Load libraries ------------------------------------------
 
 # Package names

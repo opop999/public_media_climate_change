@@ -3,6 +3,13 @@ title: "Synchronize local with remote Google Drive backup repository"
 params:
   remote_path: "climate_change_datasets/datasets/"
 ---
+This R Markdown file contains code to synchronize local folders with a remote Google Drive backup repository. 
+The code uses the `google_drive_sync.R` script to authenticate the user using OAuth in the browser, and then synchronizes a list of selected folders between the local machine and the remote repository. 
+The list of folders to synchronize is defined in the `list_of_folders_to_synchronize` object, which contains the local and remote paths for each folder. 
+The `synchronize_selected_folders()` function is then called with this list as an argument to perform the synchronization. 
+
+The `params` object at the top of the file defines a single parameter `remote_path`, which specifies the path to the remote folder in the Google Drive repository where the files should be synchronized. 
+This parameter can be set by the user when running the code.
 
 # Setup
 ```{r}

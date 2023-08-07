@@ -1,3 +1,11 @@
+# This R Markdown file contains code for performing Key Word in Context (KWIC)/concordances analysis. 
+# It loads necessary libraries, sets parameters to adjust, specifies regex pattern to match the key words of interest, 
+# processes chunks individually with get_kwics function to get combined dataset, and creates a wordcloud visualization. 
+# The code is divided into several code chunks, each with its own purpose. 
+---
+title: "Key Word in Context (KWIC)/concordances analysis"
+---
+
 # Load necessary libraries
 ```{r}
 packages <-
@@ -26,7 +34,6 @@ invisible(lapply(packages, library, character.only = TRUE))
 source("get_kwics.R")
 
 ```
-
 
 # Parameters to adjust
 ```{r}
@@ -130,6 +137,5 @@ kwic_df_full %>%
   count(word, sort = TRUE) %>%
   filter(!is.na(word)) %>%
   with(wordcloud(word, n, min.freq = 500, random.order = FALSE, max.words = 100, colors = brewer.pal(8, "Dark2")))
-
 ```
 

@@ -1,3 +1,9 @@
+# This script extracts full articles from the news API using the extract_full_articles_individual_new_api function from the get_full_articles_individual_new_api.R script. 
+# The script loops over a dataset with annotations of missing full articles and appends the extracted articles to a list. 
+# The API calls are paused for a random amount of time to avoid overwhelming the API. 
+# After every 5000 API calls, the script pauses for 60 seconds and saves a checkpoint of the appended list. 
+# The final appended list is saved as an RDS file.
+
 source(file.path("get_full_articles_individual_new_api.R"))
 
 # Create empty list to which we will append with every API call

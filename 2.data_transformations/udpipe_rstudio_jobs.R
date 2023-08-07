@@ -1,3 +1,6 @@
+# This script reads in regex chunks of text data, processes them using the udpipe_process function from udpipe_api_process.R,
+# saves the resulting udpipe data frames locally, and pauses for approximately 10 minutes between chunks. 
+
 source(file.path("udpipe_api_process.R"))
 
 for (regex_file in all_regex_chunks) {

@@ -1,7 +1,29 @@
 ---
 title: "Text Pre-processing"
 ---
-Load necessary packages
+# Text Pre-processing
+
+This R Markdown file contains code for text pre-processing using Python's and `pandas` and `polars` (alternative) libraries. 
+
+While this workflow could have been done also in R, we found it to be several times faster when implemented in Python.
+
+The code reads in media article chunks in RDS or Feather format, processes them using regex, and saves the processed data to a different folder. 
+The code also checks for already processed files in the output directory and skips them. 
+
+The code is divided into three parts:
+1. Loading necessary packages
+2. Processing the full media article chunks with regex, saving all of them
+3. Main workflow with Pandas library
+
+The first part loads the necessary packages, including `dplyr`, `stringr`, `purrr`, and `tidyr`. If any of these packages are not installed, the code installs them.
+
+The second part uses Python to process the full media article chunks with regex, saving all of them. The code imports necessary libraries such as `os`, `gc`, `polars`, `Path`, `pyreadr`, and `tqdm`. It then defines the input and output directories, checks for already processed files in the output directory, and gets the names of all of the chunks to be processed. The code then loops over the list of `.rds` chunks, loads each one in, processes it, and saves it to a different folder. 
+
+The third part is an alternative workflow with `polars` library. It loops over the list of `.feather` chunks, loads each one in, processes it, and saves it to a different folder. 
+
+The code is useful for text pre-processing tasks in natural language processing (NLP) and machine learning (ML) projects.
+
+Load necessary R packages
 ```{r}
 # Package names
 packages <- c("dplyr", "stringr", "purrr", "tidyr")
@@ -19,9 +41,15 @@ invisible(lapply(packages, library, character.only = TRUE))
 
 Use Python to process the full media article chunks with regex, saving all of them
 ```{python}
+# This script imports data from the INPUT_DIR, applies regex pattern preprocessing using the cs_text_pre_process library, 
+# and saves the processed data to the OUTPUT_DIR. 
+# It checks for already processed files in the output directory and only processes the chunks that have not been processed yet. 
+# The list of chunks to be processed is printed to the console. 
+# Garbage collection is enabled to free up memory.
 import os
 import gc
-import polars as pl
+# Optional, we only use polars for the alternative workflow
+# import polars as pl
 from pathlib import Path
 from pyreadr import read_r, write_rds
 from tqdm import tqdm
@@ -49,6 +77,10 @@ gc.enable()
 # Main workflow with Pandas library
 ```{python}
 # Loop over the list of .rds chunks, load each one in, process it and save it to a different folder
+# This code reads in chunks of data from a directory, preprocesses the text data using a regular expression pattern, and writes the preprocessed data to a new directory. 
+# The regular expression pattern removes any HTML tags and non-alphanumeric characters except for specific Czech characters. 
+# The progress of the loop is tracked using the tqdm library. 
+# The output files are compressed using gzip. 
 start = time()
 for chunk in tqdm(chunks):
     media_df = read_r(f"{INPUT_DIR}{chunk}.rds")[None][["Code", "Title", "Content"]] \
@@ -67,6 +99,11 @@ print("End in:", time() - start)
 
 # Alternative workflow with Polars library
 ```{python}
+# This alternative Polars code reads in chunks of data from a directory, applies regex pattern matching to remove HTML tags and non-alphanumeric characters,
+# concatenates the title and content columns, removes extra spaces and periods,
+# and writes the cleaned data to a new directory. 
+# The resulting data is stored in feather format with zstd compression. 
+# This code is part of a data transformation workflow for processing public media articles related to climate change.
 PATTERN = r"<(.|\n)*?>|[^ěščřžýáíéóúůďťňĎŇŤŠČŘŽÝÁÍÉÚŮĚÓa-zA-Z0-9.?! ]"
 for chunk in tqdm(chunks):
     media_df = pl.read_ipc(f"{INPUT_DIR}{chunk}.feather") \

@@ -1,3 +1,24 @@
+# This file contains a function that extracts full articles from the Newton Media API based on the specified search criteria. The function takes in several parameters such as search_string, page_size, min_date, max_date, sort, newton_api_token, media_history_id, media_id, duplicities, return_df, log, and log_path. The function returns a list of API responses or a data frame containing the extracted articles depending on the value of the return_df parameter. 
+
+# Required packages: httr, dplyr, jsonlite
+
+# Function: extract_full_articles
+# Description: Extracts full articles from the Newton Media API based on the specified search criteria.
+# Parameters:
+#   search_string: A character string specifying the search criteria.
+#   page_size: An integer specifying the number of articles to be returned per page.
+#   min_date: A character string specifying the minimum date of the search period in the format "YYYY-MM-DD".
+#   max_date: A character string specifying the maximum date of the search period in the format "YYYY-MM-DD".
+#   sort: A character string specifying the sorting order of the search results.
+#   newton_api_token: A character string specifying the API token for the Newton Media API.
+#   media_history_id: An optional numeric value specifying the media history ID.
+#   media_id: An optional numeric value specifying the media ID.
+#   duplicities: A logical value specifying whether to include duplicates in the search results.
+#   return_df: A logical value specifying whether to return a data frame or a list of API responses.
+#   log: A logical value specifying whether to log the extraction process.
+#   log_path: A character string specifying the path to the log file.
+# Returns: A list of API responses or a data frame containing the extracted articles depending on the value of the return_df parameter.
+
 extract_full_articles <- function(search_string = "*",
                                   page_size = 100,
                                   min_date,

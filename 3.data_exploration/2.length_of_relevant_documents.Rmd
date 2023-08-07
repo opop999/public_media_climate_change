@@ -1,4 +1,16 @@
-# Question 2: What is the average + total wordcount in the news containing the key words „klima“ or „globální oteplování“ per year? 
+# This R Markdown file contains code to answer the Question 2: 
+# "What is the average + total wordcount in the news containing the key words „klima“ or „globální oteplování“ per year?" 
+
+# The code loads necessary libraries, specifies paths and datasets, defines a function to get the length of documents, 
+# processes regex chunks individually, joins both datasets and keeps only the relevant documents, summarizes the word count per year, 
+# visualizes the yearly word counts of climate-relevant documents. 
+
+# The code uses the following datasets: 
+# - term_counts_df: term counts created in the previous step of the workflow
+# - doc_id_by_date: document IDs by date
+# - length_of_documents_df: length of documents
+# - length_of_climate_docs: length of climate-relevant documents
+# - word_length_per_year: word length stats per year
 
 ## Load necessary libraries and specify paths and datasets
 ```{r}
