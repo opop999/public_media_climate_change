@@ -110,11 +110,29 @@ climate_articles  <- lapply(regex_chunks_path, get_climate_texts) %>% bind_rows(
 # We probably need to observe the Google Sheets 50k character limit, otherwise the text of the article will not appear.
 climate_articles$text <- str_trunc(str_squish(climate_articles$text), width = 49997, side = "right", ellipsis = "...")
 
-# Excel formula to replicate -- if adjusting regex search string, adjust this too. BUT it may also freeze your computer :)
-# =trim(regexreplace(regexreplace(lower(B2),".?(klima\S*|antropocén|permafrost|nízkoemisn\S+|uhlíkov\S*|větrn\S+|IPCC|UNFCCC|fosiln\S+)|.", "$1 "), "klimatiza\S*|povětrn\S*|\.", ""))
-
 write_csv(climate_articles, "data/climate_sub_corpus/climate_articles.csv")
 
 ```
 
+NOTE: Google Sheets formula that tries to replicate the same results as in R
 
+`=iferror(trim(regexreplace(join(" ", filter(regexextract(split(lower(B2), " "), "klima\S*|antropocén|permafrost|nízkoemisn\S+|uhlíkov\S*|větrn\S+|IPCC|UNFCCC|fosiln\S+"), len(regexextract(split(lower(B2), " "), "klima\S*|antropocén|permafrost|nízkoemisn\S+|uhlíkov\S*|větrn\S+|IPCC|UNFCCC|fosiln\S+")))), "klimatiza\S*|povětrn\S*|\.", "")), "")`
+
+This formula is used in Google Sheets to extract specific keywords from a text string in cell B2 and join them together into a single string. 
+It then removes any unwanted characters and spaces from the resulting string.
+
+Here is a breakdown of the formula:
+
+=iferror( - This function checks if an error occurs in the formula and returns a blank cell if there is an error.
+
+trim( - This function removes any extra spaces from the resulting string.
+
+regexreplace( - This function replaces a regular expression with a specified text.
+
+join(" ", - This function joins the resulting keywords together into a single string, separated by a space.
+
+filter( - This function filters the text string to only include keywords that match the specified regular expression.
+
+`regexextract(split(lower(B2), " "), "klima\S*|antropocén|permafrost|nízkoemisn\S+|uhlíkov\S*|větrn\S+|IPCC|UNFCCC|fosiln\S+")` - This function splits the text string into individual words, converts them to lowercase, and then extracts only the words that match the specified regular expression.
+
+, `len(regexextract(split(lower(B2), " "), "klima\S*|antropocén|permafrost|nízkoemisn\S+|uhlíkov\S*|větrn\S+|IPCC|UNFCCC|fosiln\S+")))), "klimatiza\S*|povětrn\S*|.", ""))` - This function removes any unwanted characters and spaces from the resulting string by replacing them with an empty string.
