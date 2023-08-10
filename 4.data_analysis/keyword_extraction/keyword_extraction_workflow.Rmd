@@ -10,7 +10,10 @@ packages_cran <-
     "text2map",
     "jsonlite"
   )
-
+#Install the bbplot:
+install.packages('devtools')
+devtools::install_github('bbc/bbplot')
+#Continue:
 packages_gh <-
   c(
     "bbplot"
