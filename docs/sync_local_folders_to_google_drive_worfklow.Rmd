@@ -33,11 +33,11 @@ list_of_folders_to_synchronize <-
   list(
     media_articles_full = c(
       local_folder_path = "../1.data_extraction/data/full_articles/",
-      remote_folder_path = paste0(params$remote_path, "1.extracted_data/full/")
+      remote_folder_path = paste0(params$remote_path, "1.extracted_data/full_articles/")
     ),
     media_articles_annotations = c(
       local_folder_path = "../1.data_extraction/data/annotated_articles/",
-      remote_folder_path = paste0(params$remote_path, "1.extracted_data/annotations/")
+      remote_folder_path = paste0(params$remote_path, "1.extracted_data/annotated_articles/")
     ),
     media_articles_processed_regex = c(
       local_folder_path = "../2.data_transformations/data/regex_processed/",
