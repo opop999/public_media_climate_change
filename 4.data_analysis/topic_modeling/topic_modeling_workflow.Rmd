@@ -156,7 +156,7 @@ lda_topic_modeling <- function(i) {
     progressbar = FALSE
   )
     
-    saveRDS(doc_topic_distribution, paste0("data/models/doc_topic_distribution_adj_propn", i, ".rds"))
+    saveRDS(doc_topic_distribution, paste0("data/models/doc_topic_distribution_adj_propn", i, ".rds")) #NB: Big dataset to be stored in the Drive https://drive.google.com/drive/folders/15cJUzg9VUyi9C33x8aVD8mruCVyi91P0 "datasets > analyzed data > topic_modeling > models"
 
     saveRDS(lda_model, paste0("data/models/lda_model_adj_propn", i, ".rds"))
     
