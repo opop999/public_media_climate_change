@@ -110,7 +110,7 @@ climate_articles  <- lapply(regex_chunks_path, get_climate_texts) %>% bind_rows(
 # We probably need to observe the Google Sheets 50k character limit, otherwise the text of the article will not appear.
 climate_articles$text <- str_trunc(str_squish(climate_articles$text), width = 49997, side = "right", ellipsis = "...")
 
-# Excel formula to replicate
+# Excel formula to replicate -- if adjusting regex search string, adjust this too. BUT it may also freeze your computer :)
 # =trim(regexreplace(regexreplace(lower(B2),".?(klima\S*|antropocén|permafrost|nízkoemisn\S+|uhlíkov\S*|větrn\S+|IPCC|UNFCCC|fosiln\S+)|.", "$1 "), "klimatiza\S*|povětrn\S*|\.", ""))
 
 write_csv(climate_articles, "data/climate_sub_corpus/climate_articles.csv")
