@@ -22,8 +22,8 @@ if (any(installed_packages == FALSE)) {
 # Packages loading
 invisible(lapply(packages, library, character.only = TRUE))
 
-# Regex search string based on suggestions from area experts
-climate_regex_string <- "klima\\S*|antropocén|permafrost|nízkoemisn\\S+|uhlíkov\\S*|větrn\\S+|IPCC|UNFCCC|fosiln\\S+"
+# Regex search string based on suggestions from area experts. \\S* (NB capital S) means the word form could be exactly what's in here. \\S+ means there has to be one or more non-whitespace characters after the form here. (Double slash in R, in e.g. Pythoon only one slash.)
+climate_regex_string <- "klima\\S*|antropocén|permafrost|nízkoemisn\\S+|uhlíkov\\S*|větrn\\S+|IPCC|UNFCCC|fosiln\\S+" #Irene's comment: should fosiln* and větrn* really be there?
 
 # Optionally specify negative regex search string to improve performance
 negative_climate_regex_string <- "klimatiza\\S*|povětrn\\S*"
