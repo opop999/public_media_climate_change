@@ -82,6 +82,7 @@ Optional: Export sub-corpus with texts to upload to Google Sheets for manual ann
 
 climate_article_ids <- readRDS("data/climate_sub_corpus/climate_article_ids.rds")
 
+#The regex_processed contains the actual articles, but is located on the google drive, https://drive.google.com/drive/folders/15cJUzg9VUyi9C33x8aVD8mruCVyi91P0 and should perhaps be moved from there :)
 path_to_input_regex <- "data/regex_processed"
 
 # Identify Regex-processed chunks of interest
