@@ -1,6 +1,7 @@
 # Bigram collocation frequency table
 # This code reads in preprocessed text data, filters out certain parts of speech, and creates a bigram frequency table using nltk in Python.
 # The resulting table is stored in a pandas dataframe called bigramFreqTable.
+# IRENE WONDERS: Don't I need the reticulate package for this code to work?
 
 ```{r}
 tokens <- readRDS("../../2.data_transformations/data/udpipe_processed/udpipe_regex_2012-01.rds") %>% 
