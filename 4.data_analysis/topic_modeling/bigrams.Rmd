@@ -20,7 +20,7 @@ tokens <- readRDS("../../2.data_transformations/data/udpipe_processed/udpipe_reg
     unlist()
 
 ```
-
+# IRENE WONDERS: I get plenty of NameError messages when running this, despite installing and opening the reticulate package.
 ```{python}
 import nltk
 import pandas as pd
