@@ -112,13 +112,13 @@ saveRDS(term_counts_df, "data/term_counts_df.rds")
 term_counts_per_year <- term_counts_df %>%
   group_by(year) %>%
   summarise(
-    n_climate = sum(climate_count),
+    n_climate_noun = sum(climate_count),
     n_warming = sum(warming_count),
     n_global_warming = sum(global_warming_count),
     n_greenhouse_effect = sum(greenhouse_effect_count),
     n_carbon_footprint = sum(carbon_footprint_count),
     n_ecological = sum(ecological_count),
-    n_climatic = sum(climatic_count),
+    n_climate_adj = sum(climatic_count),
     n_coal = sum(coal_count),
     n_weather = sum(weather_count)
   ) %>%
@@ -162,6 +162,7 @@ term_counts_per_year %>%
     labs(x = element_blank(),
              y = "Lemma occurences per year",
              fill = "")
+ggsave("term_counts_plot.png", width = 15, height = 10, dpi = 600)
 ```
 
 ## Visualize Just the main 4 terms
@@ -171,7 +172,7 @@ term_counts_per_year %>%
   pivot_longer(where(is.numeric), values_to = "count", names_to = "term") %>% 
   mutate(year = as.factor(year),
          term = str_remove(term, "^n_")) %>% 
-  filter(term %in% c("global_warming", "climate", "greenhouse_effect", "carbon_footprint")) %>% 
+  filter(term %in% c("global_warming", "climate_noun", "climate_adj", "greenhouse_effect", "carbon_footprint")) %>% 
   ggplot(aes(x = year, y = count, fill = term)) +
   geom_col() +
    theme_minimal() +
@@ -183,4 +184,5 @@ term_counts_per_year %>%
     labs(x = element_blank(),
              y = "Lemma occurences per year",
              fill = "")
+ggsave("4term_counts_plot.png", width = 15, height = 10, dpi = 600)
 ```
