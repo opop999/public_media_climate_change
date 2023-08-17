@@ -101,7 +101,7 @@ saveRDS(dtm_udpipe, "data/dtm_udpipe_adj_propn.rds")
 stop_words_cs <- fromJSON("data/stopwords_cs.json")
 stop_words_czech_television <- c(readRDS("data/czech_tv_presenters.rds"), "moderátorka", "moderátor", "redaktorka", "redaktor")
 
-# OPTIONAL WORFLOW: Remove terms with low tf-idf scores
+# OPTIONAL WORKFLOW: Remove terms with low tf-idf scores
 # low_tf_idf <- dtm_udpipe %>%
 #   dtm_melter %>%
 #   bind_tf_idf(term, doc_id, freq) %>% 
