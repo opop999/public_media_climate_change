@@ -8,7 +8,7 @@
 ## Load necessary packages
 ```{r include=FALSE}
 # Package names
-packages <- c("dplyr", "stringr", "data.table", "dtplyr", "jsonlite", "tidyr", "reticulate")
+packages <- c("dplyr", "stringr", "data.table", "dtplyr", "jsonlite", "tidyr", "reticulate", )
 
 # Install packages not yet installed
 installed_packages <- packages %in% rownames(installed.packages())
@@ -25,10 +25,16 @@ invisible(lapply(packages, library, character.only = TRUE))
 # files that are needed for bigram analysis
 
 # 1. step: define available chunks
-# udpipe_chunks <- list.files(path = "../../2.data_transformations/data/udpipe_processed/", pattern = "*.rds", full.names = TRUE)
+udpipe_chunks <-
+  list.files(path = "../../2.data_transformations/data/udpipe_processed/",
+             pattern = "*.rds",
+             full.names = TRUE)[1:2]
 
 # 2. 
-lemmata <- readRDS("../../2.data_transformations/data/udpipe_processed/udpipe_regex_2012-01.rds") %>%
+
+process_udpipe_df <- function(udpipe_chunk) {
+  
+readRDS(udpipe_chunk) %>%
     lazy_dt() %>%
     filter(upos %in% c("NOUN", "ADJ", "PROPN")) %>%
     filter(!grepl("NameType=Giv", feats, fixed = TRUE)) %>% # Explain
@@ -42,12 +48,25 @@ lemmata <- readRDS("../../2.data_transformations/data/udpipe_processed/udpipe_re
     str_c(collapse = " ") %>% 
     str_split(" +") %>% 
     unlist()
+}
 
-# Question about random bigrams on the overlap of both documents.
+if (Sys.info()[['sysname']] == "Linux") {
+  
+library(parallel)
+
+combined_lemmata <- mclapply(udpipe_chunks, process_udpipe_df, mc.cores = detectCores() - 1) %>% unlist()
+
+} else {
+# If not Linux - non-parallelized lapply
+combined_lemmata <- lapply(udpipe_chunks, process_udpipe_df) %>% unlist()
+
+}
+
+
+# TODO: Question about random n_gram on the overlap of both documents. Use list?
+
 
 ```
-
-# IRENE WONDERS: I get plenty of NameError messages when running this, despite installing and opening the reticulate package.
 
 # Python installation is necessary, with nltk and pandas packages. 
 # If using RStudio, go to Tools-> Options-> Python and selects the appropriate
@@ -55,6 +74,7 @@ lemmata <- readRDS("../../2.data_transformations/data/udpipe_processed/udpipe_re
 # manager with distribution like Miniconda or Anaconda (which already contains
 # these packages).
 
+# TODO: Apply the n_gram finder on list of documents, rather that on list of words.
 ```{python}
 # From nltk package, we import collocations module
 from nltk import collocations
@@ -64,7 +84,7 @@ import pandas as pd
 # Firstly, we initialize the bigram finder
 bigrams = nltk.BigramAssocMeasures()
 # Then, we create a bigram finder object from the lemmatized text
-bigram_finder = nltk.BigramCollocationFinder.from_words(r.lemmata)
+bigram_finder = nltk.BigramCollocationFinder.from_words(r.combined_lemmata)
 # We use the bigram finder object to calculate the frequency of each bigram
 bigram_freq = bigram_finder.ngram_fd.items()
 # In the end, we create a pandas dataframe from the bigram frequency table
@@ -84,13 +104,13 @@ bigramFreqTable[bigramFreqTable['freq'] == 1]
 
 # Repeat the same process for trigrams
 trigrams = nltk.TrigramAssocMeasures()
-trigram_finder = nltk.TrigramCollocationFinder.from_words(r.lemmata)
+trigram_finder = nltk.TrigramCollocationFinder.from_words(r.combined_lemmata)
 trigram_freq = trigram_finder.ngram_fd.items()
 trigramFreqTable = pd.DataFrame(list(trigram_freq), columns=['trigram','freq']).sort_values(by='freq', ascending=False).reset_index(drop=True)
 
 # Repeat the same questions for quadrigrams
 quadrigrams = nltk.QuadgramAssocMeasures()
-quadrigram_finder = nltk.QuadgramCollocationFinder.from_words(r.lemmata)
+quadrigram_finder = nltk.QuadgramCollocationFinder.from_words(r.combined_lemmata)
 quadrigram_freq = quadrigram_finder.ngram_fd.items()
 quadrigramFreqTable = pd.DataFrame(list(quadrigram_freq), columns=['quadrigram','freq']).sort_values(by='freq', ascending=False).reset_index(drop=True)
 
