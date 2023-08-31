@@ -41,15 +41,15 @@ list_of_folders_to_synchronize <-
     ),
     media_articles_processed_regex = c(
       local_folder_path = "../2.data_transformations/data/regex_processed/",
-      remote_folder_path = paste0(params$remote_path, "2.processed_data/regex_processed/")
+      remote_folder_path = paste0(params$remote_path, "2.transformed_data/regex_processed/")
     ),
     media_articles_processed_udpipe = c(
       local_folder_path = "../2.data_transformations/data/udpipe_processed/",
-      remote_folder_path = paste0(params$remote_path, "2.processed_data/udpipe_processed/")
+      remote_folder_path = paste0(params$remote_path, "2.transformed_data/udpipe_processed/")
     ),
     media_articles_processed_subcorpus = c(
       local_folder_path = "../2.data_transformations/data/climate_sub_corpus/",
-      remote_folder_path = paste0(params$remote_path, "2.processed_data/climate_sub_corpus/")
+      remote_folder_path = paste0(params$remote_path, "2.transformed_data/climate_sub_corpus/")
     ),
     media_articles_analyzed_ner = c(
       local_folder_path = "../4.data_analysis/named_entity_recognition/data/",
