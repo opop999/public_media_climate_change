@@ -156,9 +156,9 @@ lda_topic_modeling <- function(i) {
     progressbar = FALSE
   )
     
-    saveRDS(doc_topic_distribution, paste0("data/models/doc_topic_distribution_adj_propn", i, ".rds")) #NB: Big dataset to be stored in the Drive https://drive.google.com/drive/folders/15cJUzg9VUyi9C33x8aVD8mruCVyi91P0 "datasets > analyzed data > topic_modeling > models"
+    saveRDS(doc_topic_distribution, paste0("data/models/lda/doc_topic_distribution_adj_propn", i, ".rds")) #NB: Big dataset to be stored in the Drive https://drive.google.com/drive/folders/15cJUzg9VUyi9C33x8aVD8mruCVyi91P0 "datasets > analyzed data > topic_modeling > models"
 
-    saveRDS(lda_model, paste0("data/models/lda_model_adj_propn", i, ".rds"))
+    saveRDS(lda_model, paste0("data/models/lda/lda_model_adj_propn", i, ".rds"))
     
     lda_model$plot(as.gist = TRUE, open.browser = FALSE, browse = FALSE, description = paste("Climate LDA topic model with", i, "topics (with adjectives)"))
     
@@ -300,8 +300,7 @@ plot_nmf <-
 
 # For NMF topic modeling, we will use RcppML library: https://github.com/zdebruine/RcppML
 # Install dev version devtools::install_github("zdebruine/RcppML"), as the CRAN
-# version is outdated as of 8/2023
-# IRENE WONDERS: I got an error message from the code chunk below. What did I miss? Error in UseMethod("predict") :   no applicable method for 'predict' applied to an object of class "list". 
+# version is outdated as of 8/2023 and will not function with out code!
 ```{r}
 devtools::install_github("zdebruine/RcppML")
 library("RcppML")
@@ -319,8 +318,8 @@ nmf_topic_modeling <- function(i) {
     model_nmf <- nmf(dtm_tfidf, k = i, seed = 3859L, maxit = 1000, tol = 0.001)
     topic_word_distribution <- predict(model_nmf, dtm_tfidf)
     
-    saveRDS(topic_word_distribution, paste0("data/models/topic_word_distribution_adj_propn_", i, ".rds"))
-    saveRDS(model_nmf, paste0("data/models/nmf_model_adj_propn_", i, ".rds"))
+    saveRDS(topic_word_distribution, paste0("data/models/nmf/topic_word_distribution_adj_propn_", i, ".rds"))
+    saveRDS(model_nmf, paste0("data/models/nmf/nmf_model_adj_propn_", i, ".rds"))
     
     plot_nmf(
     model = model_nmf,
@@ -449,7 +448,7 @@ options(scipen = 999)
 library(tidyverse)
 library(knitr)
 
-path_to_file <- "../../4.data_analysis/topic_modeling/data/models/topic_word_distribution_adj_propn_20.rds"
+path_to_file <- "../../4.data_analysis/topic_modeling/data/models/nmf/topic_word_distribution_adj_propn_20.rds"
 
 nmf_topic_word <- readRDS(path_to_file)
 
@@ -494,7 +493,10 @@ apply(nmf_topic_word, 1, function(x) {
   print()
 
 }
+```
 
+
+```{r}
 # LDA model with k=50 -- check initial code below.
 install.packages('servr')
 #lda_model_adj_propn50 <- readRDS("../../4.data_analysis/topic_modeling/data/models/lda_model_adj_propn50.rds")
