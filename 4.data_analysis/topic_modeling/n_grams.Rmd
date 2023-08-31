@@ -1,0 +1,111 @@
+# N-Gram collocation frequency table
+# This code reads in preprocessed text data, filters out certain parts of speech, and creates a bigram frequency table using nltk in Python.
+# The resulting table is stored in a pandas dataframe called bigramFreqTable.
+# TO DO:
+- explain logic behind the choice of data.table
+- Rewrite it to the chunks
+
+## Load necessary packages
+```{r include=FALSE}
+# Package names
+packages <- c("dplyr", "stringr", "data.table", "dtplyr", "jsonlite", "tidyr", "reticulate")
+
+# Install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+invisible(lapply(packages, library, character.only = TRUE))
+```
+
+```{r}
+# This code needs modification so it reads in and processes all of the .rds
+# files that are needed for bigram analysis
+
+# 1. step: define available chunks
+# udpipe_chunks <- list.files(path = "../../2.data_transformations/data/udpipe_processed/", pattern = "*.rds", full.names = TRUE)
+
+# 2. 
+lemmata <- readRDS("../../2.data_transformations/data/udpipe_processed/udpipe_regex_2012-01.rds") %>%
+    lazy_dt() %>%
+    filter(upos %in% c("NOUN", "ADJ", "PROPN")) %>%
+    filter(!grepl("NameType=Giv", feats, fixed = TRUE)) %>% # Explain
+    transmute(doc_id, lemma = gsub("[^ěščřžýáíéóúůďťňa-z ]", " ", tolower(str_replace_na(lemma, replacement = "")))) %>% # Explain
+    filter(nchar(lemma) > 1) %>% # filter one letter words 
+    group_by(doc_id) %>%
+    summarize(lemmatized_text = str_squish(str_c(lemma, collapse = " "))) %>%
+    ungroup() %>% 
+    as_tibble() %>% 
+    pull(lemmatized_text) %>% 
+    str_c(collapse = " ") %>% 
+    str_split(" +") %>% 
+    unlist()
+
+# Question about random bigrams on the overlap of both documents.
+
+```
+
+# IRENE WONDERS: I get plenty of NameError messages when running this, despite installing and opening the reticulate package.
+
+# Python installation is necessary, with nltk and pandas packages. 
+# If using RStudio, go to Tools-> Options-> Python and selects the appropriate
+# Python installation. For begginers, it is adviced to use Conda package
+# manager with distribution like Miniconda or Anaconda (which already contains
+# these packages).
+
+```{python}
+# From nltk package, we import collocations module
+from nltk import collocations
+import pandas as pd
+
+# This code block creates a bigram frequency table using the NLTK library in Python. 
+# Firstly, we initialize the bigram finder
+bigrams = nltk.BigramAssocMeasures()
+# Then, we create a bigram finder object from the lemmatized text
+bigram_finder = nltk.BigramCollocationFinder.from_words(r.lemmata)
+# We use the bigram finder object to calculate the frequency of each bigram
+bigram_freq = bigram_finder.ngram_fd.items()
+# In the end, we create a pandas dataframe from the bigram frequency table
+bigramFreqTable = pd.DataFrame(list(bigram_freq), columns=['bigram','freq']).sort_values(by='freq', ascending=False).reset_index(drop=True)
+
+# We can ask some questions about the bigram frequency table
+# How many bigrams are there?
+len(bigramFreqTable)
+# What are the most frequent bigrams?
+bigramFreqTable.head(10)
+# What are the least frequent bigrams?
+bigramFreqTable.tail(10)
+# What are the bigrams with frequency of 10?
+bigramFreqTable[bigramFreqTable['freq'] == 10]
+# What are the bigrams with frequency of 1?
+bigramFreqTable[bigramFreqTable['freq'] == 1]
+
+# Repeat the same process for trigrams
+trigrams = nltk.TrigramAssocMeasures()
+trigram_finder = nltk.TrigramCollocationFinder.from_words(r.lemmata)
+trigram_freq = trigram_finder.ngram_fd.items()
+trigramFreqTable = pd.DataFrame(list(trigram_freq), columns=['trigram','freq']).sort_values(by='freq', ascending=False).reset_index(drop=True)
+
+# Repeat the same questions for quadrigrams
+quadrigrams = nltk.QuadgramAssocMeasures()
+quadrigram_finder = nltk.QuadgramCollocationFinder.from_words(r.lemmata)
+quadrigram_freq = quadrigram_finder.ngram_fd.items()
+quadrigramFreqTable = pd.DataFrame(list(quadrigram_freq), columns=['quadrigram','freq']).sort_values(by='freq', ascending=False).reset_index(drop=True)
+
+```
+
+```{r}
+# To DO: finish
+# Access the variables existing in the Python session from above from R (reticulate must be installed and loaded)
+bigram_df <- py$bigramFreqTable
+
+# Since the bigram column is a list, we need to convert it to a string
+bigram_df$bigram <- sapply(bigram_df$bigram, function(x) paste(x, collapse = " "))
+
+bigram_df_separate_columns<- bigram_df %>% 
+  separate(bigram, c("1", "2"), sep = " ")
+```
+
+
