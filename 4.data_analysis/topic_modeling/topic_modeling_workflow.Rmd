@@ -12,7 +12,7 @@ title: "Topic modeling of Czech television news articles related to climate chan
 ## Load necessary packages
 ```{r include=FALSE}
 # Package names
-packages <- c("dplyr", "parallel", "stringr", "text2map", "data.table", "dtplyr", "text2vec", "LDAvis", "jsonlite", "tidyr", "DT", "ggplot2", "gistr", "tidytext", "RcppML")
+packages <- c("dplyr", "parallel", "stringr", "text2map", "data.table", "dtplyr", "text2vec", "LDAvis", "jsonlite", "tidyr", "DT", "ggplot2", "gistr", "tidytext")
 
 # Install packages not yet installed
 installed_packages <- packages %in% rownames(installed.packages())
@@ -299,17 +299,23 @@ plot_nmf <-
 
 
 # For NMF topic modeling, we will use RcppML library: https://github.com/zdebruine/RcppML
-# Install dev version devtools::install_github("zdebruine/RcppML")
+# Install dev version devtools::install_github("zdebruine/RcppML"), as the CRAN
+# version is outdated as of 8/2023
 # IRENE WONDERS: I got an error message from the code chunk below. What did I miss? Error in UseMethod("predict") :   no applicable method for 'predict' applied to an object of class "list". 
 ```{r}
+devtools::install_github("zdebruine/RcppML")
+library("RcppML")
+
 topics_n <- seq(10, 50, 5)
 
 tf_idf_model <- TfIdf$new()
 
+# NMF should work better with TF-IDF, explain
 dtm_tfidf <- fit_transform(dtm_less_sparse, tf_idf_model)
 
 nmf_topic_modeling <- function(i) {
   
+  # Elaborate the maxit and tolerance parameters and their choice
     model_nmf <- nmf(dtm_tfidf, k = i, seed = 3859L, maxit = 1000, tol = 0.001)
     topic_word_distribution <- predict(model_nmf, dtm_tfidf)
     
@@ -333,8 +339,9 @@ nmf_topic_modeling <- function(i) {
 
 invisible(lapply(topics_n, nmf_topic_modeling))
 
-# Calculate mean squared error for an NMF model
-# evaluate(model_nfm, dtm_less_sparse)
+# You CAN calculate mean squared error for an NMF model
+# Select a model of interest:
+evaluate(model_nmf_20, dtm_tfidf)
 
 ```
 
@@ -430,6 +437,7 @@ rowSums(nmf_model_adj_propn_10@w[1:10,])
 
 # Exploratory analyses on the results of the chosen model: NMF 20
 # IRENE WONDERS: What, then, is LDA model with k=50 doing in this chunk?
+# Split the LDA model from this chunk: Ondra
 ```{r}
 # This script analyzes the results of topic modeling using NMF with k=20. 
 # It reads in the predicted topic-word distribution of the 20 topic NMF model created with the RccpML nmf() function. 
