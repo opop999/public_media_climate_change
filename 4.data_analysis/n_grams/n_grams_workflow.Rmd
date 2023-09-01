@@ -73,7 +73,7 @@ combined_lemmata <- lapply(udpipe_chunks, process_udpipe_df) %>% unlist()
 # Python installation. For begginers, it is adviced to use Conda package
 # manager with distribution like Miniconda or Anaconda (which already contains
 # these packages).
-
+#IRENE WONDERS: I get name errors here, too, and even though I run first "python3" in the Terminal and then the install nltk command, it does not work. The latter command even gets a syntax error.
 # TODO: Apply the n_gram finder on list of documents, rather that on list of words.
 ```{python}
 # From nltk package, we import collocations module
