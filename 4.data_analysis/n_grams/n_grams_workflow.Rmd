@@ -8,7 +8,7 @@
 ## Load necessary packages
 ```{r include=FALSE}
 # Package names
-packages <- c("dplyr", "stringr", "data.table", "dtplyr", "jsonlite", "tidyr", "reticulate", )
+packages <- c("dplyr", "stringr", "data.table", "dtplyr", "jsonlite", "tidyr", "reticulate")
 
 # Install packages not yet installed
 installed_packages <- packages %in% rownames(installed.packages())
