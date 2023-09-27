@@ -77,3 +77,13 @@ ggplot(top_lemmata[1:20, ], aes(x = reorder(lemma, -total_count), y = total_coun
   xlab("Lemma") +
   ylab("Total Count") +
   ggtitle("Top 20 Lemmata")
+
+#Specific lemmata that Andrea Culková asked for:
+climate_lemmafreq <- lemma_counts %>%
+  group_by(lemma) %>%
+  summarise(total_count = sum(across(everything()))) %>%
+  filter(lemma %in% c("ekologie", "ekolog", "environment", "environmentální", "znečištění", "nízkoemisní", "uhlík", "uhlíkový", "co2", "fosilní", "dekarbonizace", "vedra", "vedro", "oteplování", "povodeň", "tornádo")) %>%
+  inner_join(lemma_counts, by = "lemma")
+
+# Write to CSV
+write.csv(climate_lemmafreq, "climate_lemma_frequencies.csv", row.names = FALSE)
