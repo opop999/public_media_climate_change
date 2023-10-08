@@ -30,9 +30,10 @@ for (i in seq_along(file_paths)) {
 # Combine all corpora into a single data frame
 corpus_df <- bind_rows(mget(corpus_names), .id = "corpus")
 
-# Remove stopwords and numbers from the lemma variable
+# Remove stopwords, numbers, and interpunction from the lemma variable
 corpus_df_clean <- corpus_df %>%
   mutate(lemma = str_remove_all(lemma, "\\d+")) %>%
+  mutate(lemma = str_remove_all(lemma, "[[:punct:]]+")) %>%
   filter(!lemma %in% stop_words_cs) %>%
   filter(!lemma %in% stop_words_czech_television)
 
@@ -47,7 +48,8 @@ top_lemmata <- lemma_counts %>%
   group_by(lemma) %>%
   summarise(total_count = sum(across(everything()))) %>%
   top_n(1000, total_count) %>%
-  inner_join(lemma_counts, by = "lemma")
+  inner_join(lemma_counts, by = "lemma") %>%
+  mutate(lemma = str_trim(lemma))
 
 # Write to CSV
 write.csv(top_lemmata, "top_1000_lemmata.csv", row.names = FALSE)
@@ -57,7 +59,8 @@ top_5000_lemmata <- lemma_counts %>%
   group_by(lemma) %>%
   summarise(total_count = sum(across(everything()))) %>%
   top_n(5000, total_count) %>%
-  inner_join(lemma_counts, by = "lemma")
+  inner_join(lemma_counts, by = "lemma") %>%
+  mutate(lemma = str_trim(lemma))
 
 # Write to CSV
 write.csv(top_5000_lemmata, "top_5000_lemmata.csv", row.names = FALSE)
@@ -72,18 +75,53 @@ library(ggplot2)
 top_lemmata <- read.csv("top_1000_lemmata.csv")
 
 # Create a bar chart of the top 20 lemmata
-ggplot(top_lemmata[1:20, ], aes(x = reorder(lemma, -total_count), y = total_count)) +
+library(scales)
+
+ggplot(top_lemmata[2:21, ], aes(x = reorder(lemma, -total_count), y = total_count, fill = lemma)) +
   geom_bar(stat = "identity") +
   xlab("Lemma") +
   ylab("Total Count") +
-  ggtitle("Top 20 Lemmata")
+  ggtitle("Top 20 most frequent lemmata") +
+  scale_y_continuous(labels = function(x) {
+    ifelse(x >= 1e6, paste0(x / 1e6, " million"),
+           ifelse(x >= 1e3, paste0(x / 1e3, " 000"), as.character(x)))
+  })
 
 #Specific lemmata that Andrea Culková asked for:
 climate_lemmafreq <- lemma_counts %>%
   group_by(lemma) %>%
   summarise(total_count = sum(across(everything()))) %>%
   filter(lemma %in% c("ekologie", "ekolog", "environment", "environmentální", "znečištění", "nízkoemisní", "uhlík", "uhlíkový", "co2", "fosilní", "dekarbonizace", "vedra", "vedro", "oteplování", "povodeň", "tornádo")) %>%
-  inner_join(lemma_counts, by = "lemma")
+  inner_join(lemma_counts, by = "lemma") %>%
+  mutate(lemma = str_trim(lemma))
 
 # Write to CSV
 write.csv(climate_lemmafreq, "climate_lemma_frequencies.csv", row.names = FALSE)
+
+english_labels <- c("Flood(ing)", "Tornado", "Pollution", "Ecologist", "Heat(wave)", "Ecology", "Warming", "Fossil (Adj.)", "Carbon (Adj.)", "Low-emission (Adj.)", "Carbon (Noun)", "Environmental", "De-carbonization", "Environment")
+english_translations <- c("povodeň"="Flood(ing)", "tornádo"="Tornado", "znečištění"="Pollution", "ekolog"="Ecologist", "vedro"="Heat(wave)", "ekologie"="Ecology", "oteplování"="Warming", "fosilní"="Fossil (Adj.)", "uhlíkový"="Carbon (Adj.)", "nízkoemisní"="Low-emission (Adj.)", "uhlík"="Carbon (Noun)", "environmentální"="Environmental", "dekarbonizace"="De-carbonization", "environment"="Environment")
+english_translations <- as.factor(english_translations)
+
+
+# Define the order of the lemmata
+lemma_order <- c("povodeň", "tornádo", "znečištění", "ekolog", "vedro", "ekologie", "oteplování", "fosilní", "uhlíkový", "nízkoemisní", "uhlík", "environmentální", "dekarbonizace", "environment")
+
+climate_lemmafreq$english_labels
+# Define a custom color palette TO DO: FIX THESE TO MATCH THE LEMMA ORDER
+custom_palette <- c("#1f77b4", "#aec7e8", "#000000", "#66bd63", "#d73027", "#1a9850", "#f46d43", "#969696", "#525252", "#e6f5d0", "#737373", "#d9ef8b", "#a6d96a", "#66c2a5")
+names(custom_palette) = c("povodeň", "tornádo", "znečištění", "ekolog", "vedro", "ekologie", "oteplování", "fosilní", "uhlíkový", "nízkoemisní", "uhlík", "environmentální", "dekarbonizace", "environment")
+
+#Plot this:
+climate_lemmafreq_sorted <- climate_lemmafreq[order(-climate_lemmafreq$total_count),]
+climate_lemmafreq_sorted$english_labels <- c("Flood(ing)", "Tornado", "Pollution", "Ecologist", "Heat(wave)", "Ecology", "Warming", "Fossil (Adj.)", "Carbon (Adj.)", "Low-emission (Adj.)", "Carbon (Noun)", "Environmental", "De-carbonization", "Environment")
+
+ggplot(climate_lemmafreq_sorted, aes(x = reorder(lemma, -total_count), y = total_count, fill = lemma)) +
+  geom_bar(stat = "identity") +
+  xlab("Lemma") +
+  ylab("Total Count") +
+  ggtitle("Frequency of specific climate lemmata") +
+  scale_y_continuous(labels = function(x) {
+    ifelse(x >= 1e6, paste0(x / 1e6, " 000 000"),
+           ifelse(x >= 1e3, paste0(x / 1e3, " 000"), as.character(x)))
+  }) +
+  scale_fill_manual(name = "Climate words", values = custom_palette, labels = english_translations)
