@@ -1,0 +1,173 @@
+---
+title: "More_term_frequencies"
+author: "Irene Elmerot / Ondra Pekáček"
+date: "2023-10-09"
+output: html_document
+---
+
+# This R Markdown file contains code for analyzing the frequency of key words related to climate change,
+# including economic terms alongside "klima" and "klimatický". 
+# The code loads necessary libraries, specifies paths, defines term counting functions, runs the function on a chunk-to-chunk basis, 
+# summarizes the key term count per year, and visualizes the terms and their frequencies. 
+# The code also includes a visualization of the main terms.
+# The output of the code includes a table of the term counts per year and two plots showing the frequency of the key terms over time.
+
+# Question 2: What was the frequency of the following key words per year and the whole period?
+
+"Banka", "Koruna", "Burza", "Akcie", "Úvěr", "Exekuce", "Chudoba", "klima", "klimatický".
+
+## Load necessary libraries and specify paths
+```{r}
+packages <-
+  c(
+    "dplyr",
+    "stringr",
+    "purrr",
+    "tidyr",
+    "parallel",
+    "lubridate",
+    "ggplot2"
+  )
+
+# Install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+invisible(lapply(packages, library, character.only = TRUE))
+
+doc_id_by_date <- readRDS("data/doc_id_by_date.rds")
+
+list_of_processed_chunks <- list.files(path = "../2.data_transformations/data/udpipe_processed", pattern = "*.rds", full.names = TRUE)
+
+```
+
+## Specify term counting function
+```{r}
+# This function counts the frequency of a given term in a vector of text.
+# Args:
+#   text_vector: A vector of text to search for the given term.
+#   economic_term: A string representing the term to search for.
+# Returns:
+#   An integer representing the frequency of the given term in the text vector.
+# Example:
+#   count_terms_of_interest(c("The quick brown fox", "jumps over the lazy dog"), "the")
+#   # Output: 2
+
+count_economy_terms_of_interest <- function(text_vector, economy_term) {
+  str_count(text_vector, regex(economy_term))
+}
+
+# This function reads in a chunk of data from a specified path and performs text analysis on it.
+# It filters the text by parts of speech (ADJ, NOUN, PUNCT), converts all lemmas to lowercase, and joins the data with a document ID by date. 
+# It then calculates the frequency of various climate-related terms in the text, 
+# including "klima", "oteplování", "globální oteplování", "skleníkový efekt", "uhlíkový stopa", "ekologický", "klimatický", "uhlí", and "počasí". 
+# The function returns a data frame with the document ID, year, and the frequency of each term in the text.
+get_economy_term_counts <- function(chunk_path) {
+  text_stats <- chunk_path %>%
+    readRDS() %>%
+    filter(upos %in% c("ADJ", "NOUN", "PUNCT")) %>%
+    transmute(doc_id, lemma = tolower(lemma)) %>%
+    inner_join(doc_id_by_date, by = "doc_id") %>%
+    mutate(date = as.character(year(date))) %>%
+    group_by(doc_id) %>%
+    summarize(
+      text = str_squish(str_c(lemma, collapse = " ")),
+      year = first(date),
+      climate_count = count_economy_terms_of_interest(text, "(?<!společenské |politické )klima\\b"),
+      climatic_count = count_economy_terms_of_interest(text, "\\bklimatický"),
+      bank_count = count_economy_terms_of_interest(text, "\\bbanka"),
+      koruna_count = count_economy_terms_of_interest(text, "\\bkoruna"),
+      exchange_count = count_economy_terms_of_interest(text, "\\bburza"),
+      stockshare_count = count_economy_terms_of_interest(text, "\\bakcie"),
+      credit_loan_count = count_economy_terms_of_interest(text, "\\búvěr"),
+      foreclosure_count = count_economy_terms_of_interest(text, "\\bexekuce"),
+      poverty_count = count_economy_terms_of_interest(text, "\\bchudoba"),
+      combined_count = climate_count + climatic_count + bank_count + koruna_count + exchange_count + stockshare_count + credit_loan_count + foreclosure_count + poverty_count
+    ) %>%
+    ungroup() %>%
+    filter(combined_count > 0) %>%
+    select(-c("text"))
+}
+```
+
+## Run the function on chunk-to-chunk basis
+```{r}
+
+# If we are using Linux or MacOS, we can use multiple CPUs to make the whole
+# process much faster. Each core handles different chunk at the same time.
+
+if (Sys.info()[['sysname']] == "Windows") {
+  # Use normal apply with Windows
+  economy_term_counts_df <-
+    lapply(list_of_processed_chunks, get_economy_term_counts) %>% bind_rows()
+
+} else {
+  economy_term_counts_df <-
+    mclapply(list_of_processed_chunks, get_economy_term_counts, mc.cores = detectCores() - 2) %>% bind_rows()
+}
+
+saveRDS(economy_term_counts_df, "data/economy_term_counts_df.rds")
+```
+
+## Summarize the key term count per year
+```{r}
+# This code chunk groups the term counts by year and summarizes the counts for each term.
+# The resulting data frame has one row for each year, with columns for each term and the count of that term for that year.
+economy_term_counts_per_year <- economy_term_counts_df %>%
+  group_by(year) %>%
+  summarise(
+    n_climate_noun = sum(climate_count),
+    n_climate_adj = sum(climatic_count),
+    n_bank = sum(bank_count),
+    n_koruna = sum(koruna_count),
+    n_exchange = sum(exchange_count),
+    n_stockshare = sum(stockshare_count),
+    n_credit_loan = sum(credit_loan_count),
+    n_foreclosure = sum(foreclosure_count),
+    n_poverty = sum(poverty_count)
+  ) %>%
+  ungroup() %>%
+  # Add a row with the total counts for each economy term across all years
+  bind_rows(summarise(
+    ., across(where(is.numeric), sum),
+    across(where(is.character), ~"Total")
+  ))
+
+# This code chunk uses the kable function from the knitr package to create a table of the term counts per year in markdown format.
+# The resulting table is printed below the code chunk in the R Markdown document.
+knitr::kable(economy_term_counts_per_year, format = "pipe")
+
+```
+
+## Visualize all of the terms and their frequencies
+```{r}
+# This code reads in a data frame of economy term counts per year, filters out the "Total" row, 
+# pivots the data frame to a longer format, removes the "n_" prefix from the economy term column, 
+# and creates a grouped bar chart using ggplot2 to display the lemma occurrences per year. 
+# The x-axis represents the year, the y-axis represents the count of lemma occurrences, 
+# and the fill represents the lemma economy term. The chart is displayed with a minimal theme, 
+# a continuous y-axis with breaks and labels every 500 counts, and a color palette from 
+# the RColorBrewer package. The x-axis label is hidden, the y-axis label is "Lemma occurrences per year", 
+# and the fill legend is blank.
+
+economy_term_counts_per_year %>%
+  filter(year != "Total") %>% 
+  pivot_longer(where(is.numeric), values_to = "count", names_to = "economy_term") %>% 
+  mutate(year = as.factor(year),
+         economy_term = str_remove(economy_term, "^n_")) %>% 
+  ggplot(aes(x = year, y = count, fill = economy_term)) +
+  geom_col() +
+   theme_minimal() +
+    scale_y_continuous(
+      breaks = seq(0, 50000, 2000),
+      labels = seq(0, 50000, 2000)
+    ) +
+    scale_fill_brewer(palette = "Set1")+ 
+    labs(x = element_blank(),
+             y = "Lemma occurences per year",
+             fill = "")
+ggsave("economy_term_counts_plot.png", width = 18, height = 12, dpi = 600)
+```
