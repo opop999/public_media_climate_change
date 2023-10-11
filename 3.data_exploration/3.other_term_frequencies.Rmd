@@ -1,7 +1,7 @@
 ---
 title: "More_term_frequencies"
 author: "Irene Elmerot / Ondra Pekáček"
-date: "2023-10-09"
+date: "2023-10-09"3
 output: html_document
 ---
 
@@ -64,7 +64,7 @@ count_economy_terms_of_interest <- function(text_vector, economy_term) {
 # It filters the text by parts of speech (ADJ, NOUN, PUNCT), converts all lemmas to lowercase, and joins the data with a document ID by date. 
 # It then calculates the frequency of various climate-related terms in the text, 
 # including "klima", "oteplování", "globální oteplování", "skleníkový efekt", "uhlíkový stopa", "ekologický", "klimatický", "uhlí", and "počasí". 
-# The function returns a data frame with the document ID, year, and the frequency of each term in the text.
+# The function returns a data frame with the document ID, year, and the frequency of each term in the text. NB: For bigrams, make sure both words are lemmatized, e.g. "český koruna" or "klimatický změna".
 get_economy_term_counts <- function(chunk_path) {
   text_stats <- chunk_path %>%
     readRDS() %>%
@@ -79,7 +79,7 @@ get_economy_term_counts <- function(chunk_path) {
       climate_count = count_economy_terms_of_interest(text, "(?<!společenské |politické )klima\\b"),
       climatic_count = count_economy_terms_of_interest(text, "\\bklimatický"),
       bank_count = count_economy_terms_of_interest(text, "\\bbanka"),
-      koruna_count = count_economy_terms_of_interest(text, "\\bkoruna"),
+      koruna_count = count_economy_terms_of_interest(text, "\\bčeský koruna"),
       exchange_count = count_economy_terms_of_interest(text, "\\bburza"),
       stockshare_count = count_economy_terms_of_interest(text, "\\bakcie"),
       credit_loan_count = count_economy_terms_of_interest(text, "\\búvěr"),
