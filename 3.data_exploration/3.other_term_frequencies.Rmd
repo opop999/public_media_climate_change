@@ -429,3 +429,43 @@ climate_change_term_counts_per_year %>%
              fill = "")
 ggsave("climate_change_term_counts_plot.png", width = 18, height = 12, dpi = 600)
 ``
+```
+
+
+```{r Are global warming mentions ever present without klima}
+# Select the doc_id and lemma columns from the corpus_df data frame
+climate_docs <- corpus_df %>% select(doc_id, lemma)
+
+# Check if "oteplování" and "klima" have a shared doc_id value
+shared_doc_id <- intersect(climate_docs %>% filter(lemma == "oteplování") %>% pull(doc_id),
+                                                     climate_docs %>% filter(lemma == "klima") %>% pull(doc_id))
+
+if (length(shared_doc_id) > 0) {
+    message("The values 'oteplování' and 'klima' have a shared doc_id value.")
+} else {
+    message("The values 'oteplování' and 'klima' do not have a shared doc_id value.")
+}
+
+# Find the unique doc_id values for "oteplování" and "klima"
+warming_with_climate_noun_doc_ids <- intersect(climate_docs %>% filter(lemma == "oteplování") %>% distinct(doc_id),
+                                                     climate_docs %>% filter(lemma == "klima") %>% distinct(doc_id))
+
+if (length(unique_doc_id) > 0) {
+    message("The values 'oteplování' and 'klima' have ", length(unique_doc_id), " shared doc_id value(s): ", paste(unique_doc_id, collapse = ", "))
+} else {
+    message("The values 'oteplování' and 'klima' do not have a shared doc_id value.")
+}
+
+# Find the unique doc_id values for "oteplování" and "klima"
+unique_oteplovani_doc_id <- climate_docs %>% filter(lemma == "oteplování") %>% distinct(doc_id)
+unique_klima_doc_id <- climate_docs %>% filter(lemma == "klima") %>% distinct(doc_id)
+
+# Find the unique doc_id values where "oteplování" and "klima" do not share a doc_id value
+unique_nonshared_doc_id <- setdiff(union(unique_oteplovani_doc_id$doc_id, unique_klima_doc_id$doc_id),
+                                                                     intersect(unique_oteplovani_doc_id$doc_id, unique_klima_doc_id$doc_id))
+
+if (length(unique_nonshared_doc_id) > 0) {
+    message("The values 'oteplování' and 'klima' do not share a doc_id value in ", length(unique_nonshared_doc_id), " unique doc_id(s): ", paste(unique_nonshared_doc_id, collapse = ", "))
+} else {
+    message("The values 'oteplování' and 'klima' share a doc_id value in all documents.")
+}
