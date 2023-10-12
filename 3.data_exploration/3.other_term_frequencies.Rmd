@@ -323,6 +323,9 @@ count_climate_change_terms_of_interest <- function(text_vector, climate_change_t
 # It then calculates the frequency of various climate-related terms in the text, 
 # including "klima", "oteplování", "globální oteplování", "skleníkový efekt", "uhlíkový stopa", "ekologický", "klimatický", "uhlí", and "počasí". 
 # The function returns a data frame with the document ID, year, and the frequency of each term in the text. NB: For bigrams, make sure both words are lemmatized, e.g. "český koruna" or "klimatický změna".
+#TO DO: fix this:       climate_is_changing_count = count_climate_change_terms_of_interest(text, "\\bklima se měnit"),
+#and then add + climate_is_changing_count
+
 get_climate_change_term_counts <- function(chunk_path) {
   text_stats <- chunk_path %>%
     readRDS() %>%
@@ -341,8 +344,7 @@ get_climate_change_term_counts <- function(chunk_path) {
       climate_model_count = count_climate_change_terms_of_interest(text, "\\bklimatický model"),
       climatic_fluctuation_count = count_climate_change_terms_of_interest(text, "\\bklimatický výkyv"),
       climate_catastrophe_count = count_climate_change_terms_of_interest(text, "\\bklimatický katastrofa"),
-      climate_is_changing_count = count_climate_change_terms_of_interest(text, "\\bklima se měnit"),
-      combined_count = climate_change_count + change_of_climate_count + climate_impacts_count + global_warming_count, climate_model_count + climatic_fluctuation_count + climate_catastrophe_count, climate_is_changing_count
+      combined_count = climate_change_count + change_of_climate_count + climate_impacts_count + global_warming_count, climate_model_count + climatic_fluctuation_count + climate_catastrophe_count
     ) %>%
     ungroup() %>%
     filter(combined_count > 0) %>%
@@ -373,6 +375,7 @@ saveRDS(climate_change_term_counts_df, "data/climate_change_term_counts_df.rds")
 ```{r}
 # This code chunk groups the term counts by year and summarizes the counts for each term.
 # The resulting data frame has one row for each year, with columns for each term and the count of that term for that year.
+#TO DO: fix and add this: ,  n_climate_is_changing_count = sum(climate_is_changing_count)
 climate_change_term_counts_per_year <- climate_change_term_counts_df %>%
   group_by(year) %>%
   summarise(
@@ -382,8 +385,7 @@ n_climate_impacts_count = sum(climate_impacts_count),
 n_global_warming_count = sum(global_warming_count), 
 n_climate_model_count = sum(climate_model_count), 
 n_climatic_fluctuation_count = sum(climatic_fluctuation_count), 
-n_climate_catastrophe_count = sum(climate_catastrophe_count), 
-n_climate_is_changing_count = sum(climate_is_changing_count)
+n_climate_catastrophe_count = sum(climate_catastrophe_count)
   ) %>%
   ungroup() %>%
   # Add a row with the total counts for each climate_change term across all years
