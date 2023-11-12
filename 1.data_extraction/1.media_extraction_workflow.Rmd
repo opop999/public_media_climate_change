@@ -97,12 +97,16 @@ for (o in seq_along(media_list[["name"]])) {
       log_path = "docs/"
     )
 
+    # Check if list is not empty
+    if (length(list_of_full_dfs) > 0) {
     # Save dataset parts
     saveRDS(
       object = distinct(bind_rows(list_of_full_dfs), Code, .keep_all = TRUE),
       file = paste0("data/full_articles/", media_list[["name"]][[o]], "_part_", i, "_", date_seq[i], ".rds")
     )
-
+    } else {
+      cat("No data for", media_list[["name"]][[o]], "for period", date_seq[i], "to", date_seq[i + 1], "\n")
+    }
     
     # Pause between loops
     Sys.sleep(runif(1, 10, 30))
