@@ -112,6 +112,13 @@ kwic_pattern_regex <- list(climate = c(key_word = phrase(c("\\bklima\\S*")),
 # If we are using Linux or MacOS, we can use multiple CPUs to make the whole
 # process much faster. Each core handles different chunk at the same time.
 
+# Check if list_of_udpipe_chunks is not empty and files exist
+if (length(list_of_udpipe_chunks) == 0) {
+  stop("No udpipe processed files found in the specified directory.")
+} else if (!all(file.exists(list_of_udpipe_chunks))) {
+  stop("Some files from the specified list do not exist.")
+}
+
 if (Sys.info()[['sysname']] == "Windows") {
   # Use normal apply with windows
   kwic_df_full <-
