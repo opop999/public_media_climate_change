@@ -54,7 +54,7 @@ process_df <- function(i) {
     transmute(doc_id, lemma = gsub("[^ěščřžýáíéóúůďťňa-z ]", " ", tolower(str_replace_na(lemma, replacement = "")))) %>% 
     filter(nchar(lemma) > 1) %>% # filter one letter words 
     group_by(doc_id) %>%
-    summarize(text = str_squish(str_c(lemma, collapse = " "))) %>%
+    summarize(text = str_flatten(lemma, collapse = " ", na.rm = TRUE)) %>%
     ungroup() %>% 
     as_tibble()
 
@@ -76,7 +76,7 @@ udpipe_filtered <- udpipe %>%
   transmute(doc_id, lemma = gsub("[^ěščřžýáíéóúůďťňa-z ]", " ", tolower(str_replace_na(lemma, replacement = "")))) %>%
   filter(nchar(lemma) > 1) %>% # filter one letter words
   group_by(doc_id) %>%
-  summarize(text = str_squish(str_c(lemma, collapse = " "))) %>%
+  summarize(text = str_flatten(lemma, collapse = " ", na.rm = TRUE)) %>%
   ungroup() %>%
   mutate(polarization = str_count(text, polarization_string)) %>%
   as_tibble()
@@ -167,7 +167,7 @@ process_df_full_name <- function(i) {
 full_names_df <- mclapply(udpipe_chunks[1], process_df_full_name, mc.cores = detectCores()) %>%
       bind_rows() %>% 
       group_by(doc_id, sentence_id) %>% 
-      summarize(name = str_squish(str_c(lemma, collapse = " "))) %>%
+      summarize(name = str_flatten(lemma, collapse = " ", na.rm = TRUE)) %>%
       ungroup() %>% 
       mutate(words_n = str_count(name, "\\S+")) %>% 
       filter(words_n == 2) %>% 

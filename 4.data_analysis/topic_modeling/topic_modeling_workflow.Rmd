@@ -48,7 +48,7 @@ process_df <- function(i) {
     transmute(doc_id, lemma = gsub("[^ěščřžýáíéóúůďťňa-z ]", " ", tolower(str_replace_na(lemma, replacement = "")))) %>% 
     filter(nchar(lemma) > 1) %>% # filter one letter words 
     group_by(doc_id) %>%
-    summarize(text = str_squish(str_c(lemma, collapse = " "))) %>%
+    summarize(text = str_flatten(lemma, collapse = " ", na.rm = TRUE)) %>%
     ungroup() %>% 
     as_tibble()
 
@@ -61,7 +61,7 @@ combined_df <- mclapply(udpipe_chunks, process_df, mc.cores = detectCores() - 1)
 
 # combined_df <- combined_df %>% 
 #   group_by(doc_id) %>%
-#   summarize(text = str_squish(str_c(lemma, collapse = " "))) %>%
+#   summarize(text = str_flatten(lemma, collapse = " ", na.rm = TRUE)) %>%
 #   ungroup() %>% 
 #   as_tibble()
 # The commented out code above can be used to combine the lemmas into a single string for each document.

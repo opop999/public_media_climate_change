@@ -67,7 +67,7 @@ get_term_counts <- function(chunk_path) {
     mutate(date = as.character(year(date))) %>%
     group_by(doc_id) %>%
     summarize(
-      text = str_squish(str_c(lemma, collapse = " ")),
+      text = str_flatten(lemma, collapse = " ", na.rm = TRUE),
       year = first(date),
       climate_count = count_terms_of_interest(text, "(?<!společenské |politické )klima\\b"),
       warming_count = count_terms_of_interest(text, "\\boteplování"),

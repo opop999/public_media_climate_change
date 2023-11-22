@@ -74,7 +74,7 @@ get_economy_term_counts <- function(chunk_path) {
     mutate(date = as.character(year(date))) %>%
     group_by(doc_id) %>%
     summarize(
-      text = str_squish(str_c(lemma, collapse = " ")),
+      text = str_flatten(lemma, collapse = " ", na.rm = TRUE),
       year = first(date),
       climate_count = count_economy_terms_of_interest(text, "(?<!společenský |politický )klima\\b"),
       climatic_count = count_economy_terms_of_interest(text, "\\bklimatický"),
@@ -202,7 +202,7 @@ get_drought_term_counts <- function(chunk_path) {
     mutate(date = as.character(year(date))) %>%
     group_by(doc_id) %>%
     summarize(
-      text = str_squish(str_c(lemma, collapse = " ")),
+      text = str_flatten(lemma, collapse = " ", na.rm = TRUE),
       year = first(date),
       climate_count = count_drought_terms_of_interest(text, "(?<!společenský | politický )klima\\b"),
       climatic_count = count_drought_terms_of_interest(text, "\\bklimatický"),
@@ -335,7 +335,7 @@ get_climate_change_term_counts <- function(chunk_path) {
     mutate(date = as.character(year(date))) %>%
     group_by(doc_id) %>%
     summarize(
-      text = str_squish(str_c(lemma, collapse = " ")),
+      text = str_flatten(lemma, collapse = " ", na.rm = TRUE),
       year = first(date),
       climate_change_count = count_climate_change_terms_of_interest(text, "\\bklimatický změna"),
       change_of_climate_count = count_climate_change_terms_of_interest(text, "\\bzměna klima"),

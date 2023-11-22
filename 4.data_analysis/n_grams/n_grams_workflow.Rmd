@@ -41,7 +41,7 @@ readRDS(udpipe_chunk) %>%
     transmute(doc_id, lemma = gsub("[^ěščřžýáíéóúůďťňa-z ]", " ", tolower(str_replace_na(lemma, replacement = "")))) %>% # Explain
     filter(nchar(lemma) > 1) %>% # filter one letter words 
     group_by(doc_id) %>%
-    summarize(lemmatized_text = str_squish(str_c(lemma, collapse = " "))) %>%
+    summarize(lemmatized_text = str_flatten(lemma, collapse = " ", na.rm = TRUE)) %>%
     ungroup() %>% 
     as_tibble() %>% 
     pull(lemmatized_text) %>% 
