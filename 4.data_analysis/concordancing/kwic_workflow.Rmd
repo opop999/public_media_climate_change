@@ -136,13 +136,13 @@ saveRDS(kwic_df_full, "data/kwic_df_full.rds")
 ```{r}
 # Wordcloud of all of the pre & post words: Automatically splits multi-word token elements
 kwic_df_full %>%
-  unite(all_context, all_of(context_direction), sep = " ") %>%
-  pull(all_context) %>%
-  strsplit(., split = " ") %>%
-  unlist() %>%
-  tibble(word = .) %>%
-  count(word, sort = TRUE) %>%
-  filter(!is.na(word)) %>%
+  unite(col = "all_context", all_of(context_direction), sep = " ", na.rm = TRUE) %>% # Combine "pre" and "post" columns into 'all_context' column
+  pull(all_context) %>% # Keep only the 'all_context' column
+  strsplit(split = " ") %>% # Split the 'all_context' column by space, creating a list of vectors
+  unlist() %>% # Unlist the list of vectors into a single vector
+  tibble(word = .) %>% # Create a tibble with a single column 'word'
+  count(word, sort = TRUE) %>% # Count the number of occurrences of each word
+  filter(!is.na(word)) %>% # Remove NA values
   with(wordcloud(word, n, min.freq = 500, random.order = FALSE, max.words = 100, colors = brewer.pal(8, "Dark2")))
 ```
 
