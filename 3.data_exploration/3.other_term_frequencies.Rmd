@@ -1,7 +1,7 @@
 ---
 title: "More_term_frequencies"
 author: "Irene Elmerot / Ondra Pekáček"
-date: "2023-10-09"3
+date: "2023-10-09"
 output: html_document
 ---
 
@@ -40,7 +40,8 @@ invisible(lapply(packages, library, character.only = TRUE))
 
 doc_id_by_date <- readRDS("data/doc_id_by_date.rds")
 
-list_of_processed_chunks <- list.files(path = "../2.data_transformations/data/udpipe_processed", pattern = "*.rds", full.names = TRUE)
+list_of_processed_chunks <- list.files(path = "../2.data_transformations/data/udpipe_processed", pattern = "*.rds", full.names = TRUE) 
+list_of_original_text_chunks <- list.files(path = "../2.data_transformations/data/regex_processed", pattern = "*.rds", full.names = TRUE)
 
 ```
 
@@ -469,3 +470,94 @@ if (length(unique_nonshared_doc_id) > 0) {
 } else {
     message("The values 'oteplování' and 'klima' share a doc_id value in all documents.")
 }
+```
+
+# New Workflow: When do words appear in the same document?
+
+We need the new workflow to iterate over a specified list of udpipe'd / lemmatized datasets.
+We then need to change the datasets from "long" to "wide" form, where each row contains a complete (lemmatized) text.
+
+Once this script finishes running, we should have a dataframe with doc_id, full original text and two columns with information on which documents contain both terms and on where only the first term is present and the second one is missing.
+
+```{r}
+# Load libraries at the beggining of the Rmd file
+
+# Select desired terms and upos tags
+term_1 <- "oteplování"
+term_2 <- "klima"
+upos_filter <- c("ADJ", "NOUN", "PUNCT")
+
+# List of udpipe'd / lemmatized datasets
+list_of_processed_chunks <- list.files(path = "../2.data_transformations/data/udpipe_processed", pattern = "*.rds", full.names = TRUE)
+# Listo of original text chunks (after regex cleaning)
+list_of_original_text_chunks <- list.files(path = "../2.data_transformations/data/regex_processed", pattern = "*.rds", full.names = TRUE)
+
+```
+
+```{r}
+# This function takes a chunk of lemmatized data and returns a dataframe with doc_id,
+# with only rows containing term_1, with information on whether term_2 is also present
+get_matched_documents <- function(chunk_path, upos_filter, term_1, term_2) {
+  
+  chunk_path %>%
+    readRDS() %>%
+    filter(upos %in% upos_filter) %>%
+    mutate(doc_id, lemma = tolower(lemma), .keep = "none") %>%
+    group_by(doc_id) %>%
+    summarize(
+      text = str_flatten(lemma, collapse = " ", na.rm = TRUE),
+      term_1 = str_detect(text, term_1),
+      term_2 = str_detect(text, term_2)
+    ) %>%
+    ungroup() %>% 
+    filter(term_1 == TRUE) %>% 
+    select(-text)
+}
+
+# This function takes a chunk of original text and returns a dataframe with doc_id and full original text,
+# and columns term_1 and term_2 from from the matched_documents dataframe, which
+# informs us whether the terms are present in the document
+get_filtered_full_text <- function(chunk_path, matched_documents) {
+
+  chunk_path %>%
+    readRDS() %>%
+    inner_join(matched_documents, by = c("article_id" = "doc_id"))
+}
+
+```
+
+```{r}
+# Process udpipe'd chunks one by one
+if (Sys.info()[['sysname']] == "Windows") {
+  # Use normal apply with Windows
+  matched_documents <-
+    lapply(list_of_processed_chunks, function(x) get_matched_documents(x, upos_filter, term_1, term_2))
+
+} else {
+  matched_documents <-
+    mclapply(list_of_processed_chunks, function(x) get_matched_documents(x, upos_filter, term_1, term_2), mc.cores = detectCores() - 2)
+}
+
+matched_documents <- bind_rows(matched_documents)
+# Save the middle result into a file for later use
+saveRDS(matched_documents, paste0("data/matched_documents_", term_1, "_", term_2, ".rds"))
+
+```
+
+```{r}
+# Process full-text chunks one by one
+if (Sys.info()[['sysname']] == "Windows") {
+  # Use normal apply with Windows
+  filtered_documents <-
+    lapply(list_of_original_text_chunks, function(x) get_filtered_full_text(x, matched_documents))
+
+} else {
+  filtered_documents <-
+    mclapply(list_of_original_text_chunks, function(x) get_filtered_full_text(x, matched_documents), mc.cores = detectCores() - 2)
+}
+filtered_documents <- bind_rows(filtered_documents)
+saveRDS(filtered_documents, paste0("data/filtered_documents_full_txt_", term_1, "_", term_2, ".rds"))
+```
+
+
+

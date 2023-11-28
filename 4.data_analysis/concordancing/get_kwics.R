@@ -33,7 +33,7 @@ get_kwics <- function(udpipe_chunk) {
     {if(lowercase) mutate(., word = tolower(word)) else .} %>%
     # Aggregate lemma to the level of individual texts.
     group_by(doc_id) %>%
-    summarize(tokenized_text = str_squish(str_c(word, collapse = " "))) %>%
+    summarize(tokenized_text = str_flatten(word, collapse = " ", na.rm = TRUE)) %>%
     ungroup() %>%
     as_tibble() %>%
     corpus(docid_field = "doc_id", text_field = "tokenized_text") %>%
