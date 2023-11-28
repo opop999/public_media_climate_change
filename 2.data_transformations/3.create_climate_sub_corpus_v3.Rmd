@@ -1,0 +1,39 @@
+---
+title: "Sub-corpus creation: V3"
+---
+# Load necessary packages
+```{r include=FALSE}
+# Package names
+packages <- c("dplyr", "stringr", "readr")
+
+# Install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+invisible(lapply(packages, library, character.only = TRUE))
+
+```
+
+# FILTER manually labelled articles
+```{r}
+# Manually labelled sub-corpus V2
+# The column "your_notes" contains "x" for articles, which are not relevant for the sub-corpus
+# We want to get the "doc_id" of these articles and filter them out from the sub-corpus V3
+get_doc_ids_to_filter <- function(corpus_v2_labelled, filter_by) {
+  # Load the manually labelled sub-corpus V2, which was downloaded from the Google Sheets
+  corpus_v2 <- read_csv(corpus_v2_labelled)
+  # Filter by pattern of interest on the column of interest
+  doc_ids_to_filter <- corpus_v2 %>%
+    mutate(your_notes = tolower(your_notes)) %>%
+    filter(str_detect(your_notes, filter_by)) %>% 
+    pull(article_id)
+  
+  return(doc_ids_to_filter)
+}
+
+doc_ids_to_remove = get_doc_ids_to_filter("data/climate_sub_corpus/climate_articles_string_v2.csv", filter_by = "^x")
+saveRDS(doc_ids_to_remove, "data/climate_sub_corpus/doc_ids_to_remove.rds")
+```
