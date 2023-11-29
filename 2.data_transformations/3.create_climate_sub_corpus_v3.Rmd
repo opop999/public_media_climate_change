@@ -19,26 +19,66 @@ invisible(lapply(packages, library, character.only = TRUE))
 
 # MAIN STRING to search for: get doc_ids of articles with match
 ```{r}
-path_to_input_udpipe <- "data/udpipe_processed"
 # Construct a search string, which will use single and multi-word expressions
 # Since we are using a lemmatized corpus, we need to use lemmas instead of words
-# We do not need to use regex, because we are using lemma
-
-climate_search_string_v3 <- 
+climate_search_string_v3 <-
+  c(
+    "změna klima",
+    "klima se měnit",
+    "měnící se klima",
+    "globální oteplování",
+    "oteplování planeta",
+    "klimatický změna",
+    "klimatický podmínka",
+    "klimatický dopad",
+    "klimatický důsledek",
+    "klimatický model",
+    "klimatický opatření",
+    "klimatický krize",
+    "klimatický kolaps",
+    "klimatický katastrofa",
+    "klimaticky neutrální",
+    "klimatický neutralita",
+    "klimatický plán",
+    "klimatický rozvrat",
+    "klimatický zákon",
+    "klimatický závazek",
+    "klimatický žaloba",
+    "klimatický vzdělávání"
+    # We add regex word boundaries \\b to avoid matching substrings
+    # e.g. "klimatický" would match "klimatickým" and "klimatickými" otherwise
+    # Also, we collapse the vector into a single string, which is separated by the OR operator |
+    # The resulting string is then used in the str_detect() function
+    # The ideas is to detect the presence of at least one of the expressions in the string
+    # Such document is then considered to be a "climate article"
+  )  %>% str_c("\\b", ., "\\b", collapse = "|") 
 
 # Identify UPIPE-processed chunks of interest
-udpipe_chunks_path <- list.files(path = file.path(path_to_input_udpipe),
-                              pattern = "*.rds",
-                              full.names = TRUE)
+path_to_input_udpipe <- "data/udpipe_processed"
+udpipe_chunks_path <-
+  list.files(
+    path = file.path(path_to_input_udpipe),
+    pattern = "*.rds",
+    full.names = TRUE
+  )
 
+# Specify a function to extract doc_ids of articles with match
 get_climate_articles_v3 <- function(udpipe_chunk_path) {
   readRDS(udpipe_chunk_path) %>%
-    mutate(doc_id, str_to_lower(lemma, locale = "cs"), .keep = "none") %>%
-    filter(
-      str_detect(lemma, climate_search_string_v3)
+    mutate(doc_id,
+           text = str_to_lower(lemma, locale = "cs"),
+           .keep = "none") %>%
+    group_by(doc_id) %>%
+    summarize(
+      text = str_flatten(text, collapse = " ", na.rm = TRUE),
+      # Combine all lemmas into a single string
+      climate_string_matches = str_c(unlist(
+        str_extract_all(text, climate_search_string_v3)
+      ), collapse = " | ") # Extract climate string matches from the text
     ) %>%
-    pull(doc_id) %>%
-    unique()
+    ungroup() %>%
+    filter(nchar(climate_string_matches) > 0) # Filter out documents with no climate string matches
+  select(doc_id, climate_string_matches) # Select only the doc_id and climate_string_matches columns
 }
 
 ```
@@ -46,12 +86,12 @@ get_climate_articles_v3 <- function(udpipe_chunk_path) {
 # Iterate over the list of UDPIPE chunks and extract all of the documents that match the search string
 ```{r}
 if (Sys.info()[['sysname']] == "Windows") {
-climate_article_ids <- lapply(udpipe_chunks_path, get_climate_articles_v3) %>% unlist()
+climate_article_ids_v3 <- lapply(udpipe_chunks_path, get_climate_articles_v3) %>% bind_rows()
 } else {
-climate_article_ids <- mclapply(udpipe_chunks_path, get_climate_articles_v3,  mc.cores = detectCores() - 2) %>% unlist()
+climate_article_ids_v3 <- mclapply(udpipe_chunks_path, get_climate_articles_v3,  mc.cores = detectCores() - 2) %>% bind_rows()
 }
 
-saveRDS(climate_article_ids, "data/climate_sub_corpus/climate_article_ids.rds")
+saveRDS(climate_article_ids_v3, "data/climate_sub_corpus/climate_article_ids_v3.rds")
 ```
 
 # FILTER manually labelled articles: get doc_ids to filter out
@@ -61,50 +101,71 @@ saveRDS(climate_article_ids, "data/climate_sub_corpus/climate_article_ids.rds")
 # We want to get the "doc_id" of these articles and filter them out from the sub-corpus V3
 get_doc_ids_to_filter <- function(corpus_v2_labelled, filter_by) {
   # Load the manually labelled sub-corpus V2, which was downloaded from the Google Sheets
-  corpus_v2 <- read_csv(corpus_v2_labelled)
+  corpus_v2 <- read_csv(corpus_v2_labelled, col_types = "cccc")
   # Filter by pattern of interest on the column of interest
   doc_ids_to_filter <- corpus_v2 %>%
-    mutate(your_notes = tolower(your_notes)) %>%
-    filter(str_detect(your_notes, filter_by)) %>% 
+    mutate(your_notes = str_to_lower(your_notes, locale = "cs")) %>%
+    filter(str_detect(your_notes, filter_by)) %>%
     pull(article_id)
   
   return(doc_ids_to_filter)
 }
-
+# Load the manually labelled dataset and get the doc_ids of articles to filter out
 doc_ids_to_remove_v3 <- get_doc_ids_to_filter("data/climate_sub_corpus/climate_articles_string_v2.csv", filter_by = "^x")
 saveRDS(doc_ids_to_remove_v3, "data/climate_sub_corpus/doc_ids_to_remove_v3.rds")
 ```
-
 
 Final step: Export sub-corpus with texts to upload to Google Sheets for manual annotation and review,
 while filtering out the articles, which were already manually labelled as irrelevant in the sub-corpus V2.
 ```{r}
 climate_article_ids_v3 <- readRDS("data/climate_sub_corpus/climate_article_ids_v3.rds")
+doc_ids_to_remove_v3 <- readRDS("data/climate_sub_corpus/doc_ids_to_remove_v3.rds")
 
 path_to_input_regex <- "data/regex_processed"
+regex_chunks_path <-
+  list.files(
+    path = file.path(path_to_input_regex),
+    pattern = "*.rds",
+    full.names = TRUE
+  )
 
-# Identify Regex-processed chunks of interest
-regex_chunks_path <- list.files(path = file.path(path_to_input_regex),
-                              pattern = "*.rds",
-                              full.names = TRUE)
+# Specify function, which will extract the texts of interest based on relevant doc_ids
+get_climate_texts <-
+  function(regex_chunk_path,
+           doc_ids_to_remove,
+           climate_article_ids) {
+    regex_chunk_path %>%
+      readRDS() %>%
+      filter(!article_id %in% doc_ids_to_remove) %>%
+      inner_join(climate_article_ids_v3, by = c("article_id" = "doc_id"))
+  }
+```
 
-get_climate_texts <- function(regex_chunks_path) {
-  readRDS(regex_chunks_path) %>%
-    filter(article_id %in% climate_article_ids_v3 & !(article_id %in% doc_ids_to_remove))
-}
-
-
+# Iterate over the list of Regex chunks and get all of the relevant texts
+```{r}
 if (Sys.info()[['sysname']] == "Windows") {
-climate_articles_v3  <- lapply(regex_chunks_path, get_climate_texts) %>% bind_rows()
+  climate_corpus_v3  <-
+    lapply(regex_chunks_path, function(x)
+      get_climate_texts(x, doc_ids_to_remove_v3, climate_article_ids_v3)) %>% bind_rows()
 } else {
-# If not Linux - non-parallelized lapply
-climate_articles_v3 <- mclapply(regex_chunks_path, get_climate_texts,  mc.cores = detectCores() - 2) %>% bind_rows()
+  # If not Linux - non-parallelized lapply
+  climate_corpus_v3 <-
+    mclapply(regex_chunks_path, function(x)
+      get_climate_texts(x, doc_ids_to_remove_v3, climate_article_ids_v3),  mc.cores = detectCores() - 2) %>% bind_rows()
 }
 
-# We probably need to observe the Google Sheets 50k character limit, otherwise the text of the article will not appear.
-climate_articles_v3$text <- str_trunc(str_squish(climate_articles_v3$text), width = 49997, side = "right", ellipsis = "...")
+# Save final climate sub-corpus
+saveRDS(climate_corpus_v3, "data/climate_sub_corpus/climate_corpus_v3.rds")
+```
 
-write_csv(climate_articles, "data/climate_sub_corpus/climate_articles_v3.csv")
+# Prepare the file for Google Sheets upload
+```{r}
+# We probably need to observe the Google Sheets 50k character limit, otherwise the text of the article will not appear at all.
+climate_corpus_v3_truncated <- climate_corpus_v3 %>% 
+  mutate(text = str_trunc(str_squish(text), width = 49997, side = "right", ellipsis = "..."))
+  
+# Save the sub-corpus to a CSV file, which we upload to Google Sheets for manual annotation and review
+write_csv(climate_corpus_v3_truncated, "data/climate_sub_corpus/climate_articles_v3_truncated.csv")
 
 ```
 

@@ -502,10 +502,10 @@ get_matched_documents <- function(chunk_path, upos_filter, term_1, term_2) {
   chunk_path %>%
     readRDS() %>%
     filter(upos %in% upos_filter) %>%
-    mutate(doc_id, lemma = tolower(lemma), .keep = "none") %>%
+    mutate(doc_id, text = str_to_lower(lemma , locale = "cs"), .keep = "none") %>%
     group_by(doc_id) %>%
     summarize(
-      text = str_flatten(lemma, collapse = " ", na.rm = TRUE),
+      text = str_flatten(text, collapse = " ", na.rm = TRUE),
       term_1 = str_detect(text, term_1),
       term_2 = str_detect(text, term_2)
     ) %>%
