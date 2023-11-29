@@ -4,7 +4,7 @@ title: "Sub-corpus creation: V3"
 # Load necessary packages
 ```{r include=FALSE}
 # Package names
-packages <- c("dplyr", "stringr", "readr")
+packages <- c("dplyr", "stringr", "readr", "parallel")
 
 # Install packages not yet installed
 installed_packages <- packages %in% rownames(installed.packages())
@@ -17,7 +17,44 @@ invisible(lapply(packages, library, character.only = TRUE))
 
 ```
 
-# FILTER manually labelled articles
+# MAIN STRING to search for: get doc_ids of articles with match
+```{r}
+path_to_input_udpipe <- "data/udpipe_processed"
+# Construct a search string, which will use single and multi-word expressions
+# Since we are using a lemmatized corpus, we need to use lemmas instead of words
+# We do not need to use regex, because we are using lemma
+
+climate_search_string_v3 <- 
+
+# Identify UPIPE-processed chunks of interest
+udpipe_chunks_path <- list.files(path = file.path(path_to_input_udpipe),
+                              pattern = "*.rds",
+                              full.names = TRUE)
+
+get_climate_articles_v3 <- function(udpipe_chunk_path) {
+  readRDS(udpipe_chunk_path) %>%
+    mutate(doc_id, str_to_lower(lemma, locale = "cs"), .keep = "none") %>%
+    filter(
+      str_detect(lemma, climate_search_string_v3)
+    ) %>%
+    pull(doc_id) %>%
+    unique()
+}
+
+```
+
+# Iterate over the list of UDPIPE chunks and extract all of the documents that match the search string
+```{r}
+if (Sys.info()[['sysname']] == "Windows") {
+climate_article_ids <- lapply(udpipe_chunks_path, get_climate_articles_v3) %>% unlist()
+} else {
+climate_article_ids <- mclapply(udpipe_chunks_path, get_climate_articles_v3,  mc.cores = detectCores() - 2) %>% unlist()
+}
+
+saveRDS(climate_article_ids, "data/climate_sub_corpus/climate_article_ids.rds")
+```
+
+# FILTER manually labelled articles: get doc_ids to filter out
 ```{r}
 # Manually labelled sub-corpus V2
 # The column "your_notes" contains "x" for articles, which are not relevant for the sub-corpus
@@ -34,6 +71,41 @@ get_doc_ids_to_filter <- function(corpus_v2_labelled, filter_by) {
   return(doc_ids_to_filter)
 }
 
-doc_ids_to_remove = get_doc_ids_to_filter("data/climate_sub_corpus/climate_articles_string_v2.csv", filter_by = "^x")
-saveRDS(doc_ids_to_remove, "data/climate_sub_corpus/doc_ids_to_remove.rds")
+doc_ids_to_remove_v3 <- get_doc_ids_to_filter("data/climate_sub_corpus/climate_articles_string_v2.csv", filter_by = "^x")
+saveRDS(doc_ids_to_remove_v3, "data/climate_sub_corpus/doc_ids_to_remove_v3.rds")
 ```
+
+
+Final step: Export sub-corpus with texts to upload to Google Sheets for manual annotation and review,
+while filtering out the articles, which were already manually labelled as irrelevant in the sub-corpus V2.
+```{r}
+climate_article_ids_v3 <- readRDS("data/climate_sub_corpus/climate_article_ids_v3.rds")
+
+path_to_input_regex <- "data/regex_processed"
+
+# Identify Regex-processed chunks of interest
+regex_chunks_path <- list.files(path = file.path(path_to_input_regex),
+                              pattern = "*.rds",
+                              full.names = TRUE)
+
+get_climate_texts <- function(regex_chunks_path) {
+  readRDS(regex_chunks_path) %>%
+    filter(article_id %in% climate_article_ids_v3 & !(article_id %in% doc_ids_to_remove))
+}
+
+
+if (Sys.info()[['sysname']] == "Windows") {
+climate_articles_v3  <- lapply(regex_chunks_path, get_climate_texts) %>% bind_rows()
+} else {
+# If not Linux - non-parallelized lapply
+climate_articles_v3 <- mclapply(regex_chunks_path, get_climate_texts,  mc.cores = detectCores() - 2) %>% bind_rows()
+}
+
+# We probably need to observe the Google Sheets 50k character limit, otherwise the text of the article will not appear.
+climate_articles_v3$text <- str_trunc(str_squish(climate_articles_v3$text), width = 49997, side = "right", ellipsis = "...")
+
+write_csv(climate_articles, "data/climate_sub_corpus/climate_articles_v3.csv")
+
+```
+
+
