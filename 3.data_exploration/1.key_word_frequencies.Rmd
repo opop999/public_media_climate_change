@@ -54,14 +54,14 @@ count_terms_of_interest <- function(text_vector, term) {
 }
 
 # This function reads in a chunk of data from a specified path and performs text analysis on it.
-# It filters the text by parts of speech (ADJ, NOUN, PUNCT), converts all lemmas to lowercase, and joins the data with a document ID by date. 
+# It filters the text by parts of speech (ADJ, NOUN, PUNCT, PRON), converts all lemmas to lowercase, and joins the data with a document ID by date. 
 # It then calculates the frequency of various climate-related terms in the text, 
 # including "klima", "oteplování", "globální oteplování", "skleníkový efekt", "uhlíkový stopa", "ekologický", "klimatický", "uhlí", and "počasí". 
 # The function returns a data frame with the document ID, year, and the frequency of each term in the text.
 get_term_counts <- function(chunk_path) {
   text_stats <- chunk_path %>%
     readRDS() %>%
-    filter(upos %in% c("ADJ", "NOUN", "PUNCT")) %>%
+    filter(upos %in% c("ADJ", "NOUN", "PUNCT", "PRON", "VERB")) %>%
     transmute(doc_id, lemma = tolower(lemma)) %>%
     inner_join(doc_id_by_date, by = "doc_id") %>%
     mutate(date = as.character(year(date))) %>%
@@ -186,3 +186,76 @@ term_counts_per_year %>%
              fill = "")
 ggsave("4term_counts_plot.png", width = 15, height = 10, dpi = 600)
 ```
+#Now we want to see the total amount of mentions of the focus climate terms (the ones used to create Climate corpus version 4). Let's see if ~/Rprojekt/Climate is needed.
+```{r Climate corpus terms in total}
+count_terms_of_interest <- function(text_vector, term) {
+  str_count(text_vector, regex(term))
+}
+
+get_climate_term_counts <- function(chunk_path) {
+  # Ensure doc_id_by_date is available
+  if (!exists("doc_id_by_date")) {
+    stop("doc_id_by_date not found in the environment.")
+  }
+  
+  # Ensure count_terms_of_interest() function is available
+  if (!exists("count_terms_of_interest")) {
+    stop("count_terms_of_interest() function not found in the environment.")
+  }
+  
+  # Read the RDS file
+  chunk_data <- readRDS(chunk_path)
+  
+  # Check if the necessary columns exist in the data
+  necessary_columns <- c("upos", "doc_id", "lemma")
+  if (!all(necessary_columns %in% names(chunk_data))) {
+    stop(paste("The following necessary columns are missing from the data:", 
+               paste(necessary_columns[!(necessary_columns %in% names(chunk_data))], collapse = ", ")))
+  }
+  
+  # Process the data <-  NB 
+  text_stats <- chunk_data %>%
+    filter(upos %in% c("ADJ", "NOUN", "PUNCT", "PRON", "VERB")) %>%
+    transmute(doc_id, lemma = tolower(lemma)) %>%
+    inner_join(doc_id_by_date, by = "doc_id") %>%
+    mutate(date = as.character(year(date))) %>%
+    group_by(doc_id) %>%
+    summarize(
+      text = str_flatten(lemma, collapse = " ", na.rm = TRUE),
+      year = first(date),
+      climate_change_count = count_terms_of_interest(text, "změna klima\\b"),
+      climate_is_changing_count = count_terms_of_interest(text, "\\bklima\\b\\s+se\\s+měnit\\b"),
+      changing_climate_count = count_terms_of_interest(text, "\\bměnící\\s+se\\s+klima"),
+      global_warming_count = count_terms_of_interest(text, "\\bglobální oteplování"),
+      heating_planet_count = count_terms_of_interest(text, "\\boteplování planeta"),
+      climatic_count = count_terms_of_interest(text, "klimatický\\b(?= změna|podmínka|dopad|důsledek|model|opatření|krize|kolaps|katastrofa|neutrální|neutralita|plán|rozvrat|zákon|závazek|žaloba|vzdělávání)"),
+      combined_climate_count = climate_change_count + climate_is_changing_count + changing_climate_count + global_warming_count + heating_planet_count + climatic_count
+    ) %>%
+    ungroup() %>%
+    filter(combined_climate_count > 0) %>%
+    select(-c("text"))
+  
+  return(text_stats)
+}
+  
+```
+
+##Run the climate terms on a chunk-to-chunk basis
+```{r Create RDS file of the climate terms}
+
+ # If we are using Linux or MacOS, we can use multiple CPUs to make the whole
+  # process much faster. Each core handles different chunk at the same time.
+  
+  if (Sys.info()[['sysname']] == "Windows") {
+    # Use normal apply with Windows
+    climate_term_counts_df <-
+      lapply(list_of_processed_chunks, get_climate_term_counts) %>% bind_rows()
+    
+  } else {
+    climate_term_counts_df <-
+      mclapply(list_of_processed_chunks, get_climate_term_counts, mc.cores = detectCores() - 2) %>% bind_rows()
+  }
+  
+  saveRDS(climate_term_counts_df, "~/Rprojekt/Climate/3.data_exploration/data/climate_term_counts_df.rds")
+```
+
