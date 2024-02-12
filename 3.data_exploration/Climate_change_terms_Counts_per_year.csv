@@ -1,0 +1,13 @@
+year,n_climate_change_count,n_change_of_climate_count,n_climate_impacts_count,n_global_warming_count,n_climate_model_count,n_climatic_fluctuation_count,n_climate_catastrophe_count
+2012,24,46,0,32,0,0,1
+2013,52,109,1,55,0,0,1
+2014,121,83,10,37,1,1,0
+2015,213,181,12,95,9,2,2
+2016,164,97,11,43,7,0,0
+2017,202,240,9,87,8,0,1
+2018,291,223,19,69,15,0,1
+2019,730,447,53,84,11,0,2
+2020,244,146,18,48,7,0,0
+2021,354,261,15,75,12,0,6
+2022,144,94,12,9,2,0,0
+Total,2539,1927,160,634,72,3,14

@@ -54,7 +54,7 @@ count_terms_of_interest <- function(text_vector, term) {
 }
 
 # This function reads in a chunk of data from a specified path and performs text analysis on it.
-# It filters the text by parts of speech (ADJ, NOUN, PUNCT, PRON), converts all lemmas to lowercase, and joins the data with a document ID by date. 
+# It filters the text by parts of speech (ADJ, NOUN, PUNCT, PRON, VERB), converts all lemmas to lowercase, and joins the data with a document ID by date. 
 # It then calculates the frequency of various climate-related terms in the text, 
 # including "klima", "oteplování", "globální oteplování", "skleníkový efekt", "uhlíkový stopa", "ekologický", "klimatický", "uhlí", and "počasí". 
 # The function returns a data frame with the document ID, year, and the frequency of each term in the text.
@@ -257,5 +257,60 @@ get_climate_term_counts <- function(chunk_path) {
   }
   
   saveRDS(climate_term_counts_df, "~/Rprojekt/Climate/3.data_exploration/data/climate_term_counts_df.rds")
+```
+## Summarize the key climate term count per year
+```{r}
+# This code chunk groups the climate term counts by year and summarizes the counts for each term. The resulting data frame has one row for each year, with columns for each term and the count of that term for that year.
+climate_term_counts_per_year <- climate_term_counts_df %>%
+  group_by(year) %>%
+  summarise(
+    n_climate_change_count <- sum(climate_change_count), 
+    n_climate_is_changing_count <- sum(climate_is_changing_count),
+    n_changing_climate_count <- sum(changing_climate_count), 
+    n_global_warming_count <- sum(global_warming_count), 
+    n_heating_planet_count <- sum(heating_planet_count), 
+    n_climatic_count <- sum(climatic_count)
+  ) %>%
+  ungroup() %>%
+  # Add a row with the total counts for each term across all years
+  bind_rows(summarise(
+    ., across(where(is.numeric), sum),
+    across(where(is.character), ~"Total")
+  ))
+
+# This code chunk uses the kable function from the knitr package to create a table of the term counts per year in markdown format.
+# The resulting table is printed below the code chunk in the R Markdown document.
+knitr::kable(climate_term_counts_per_year, format = "pipe")
+
+```
+
+##Visualisation of climate terms per year
+```{r}
+# This code reads in a data frame of term counts per year, filters out the "Total" row, 
+# pivots the data frame to a longer format, removes the "n_" prefix from the term column, 
+# and creates a grouped bar chart using ggplot2 to display the lemma occurrences per year. 
+# The x-axis represents the year, the y-axis represents the count of lemma occurrences, 
+# and the fill represents the lemma term. The chart is displayed with a minimal theme, 
+# a continuous y-axis with breaks and labels every 500 counts, and a color palette from 
+# the RColorBrewer package. The x-axis label is hidden, the y-axis label is "Lemma occurrences per year", 
+# and the fill legend is blank.
+
+climate_term_counts_per_year %>%
+  filter(year != "Total") %>% 
+  pivot_longer(where(is.numeric), values_to = "count", names_to = "term") %>% 
+  mutate(year = as.factor(year),
+         term = str_remove(term, "^n_")) %>% 
+  ggplot(aes(x = year, y = count, fill = term)) +
+  geom_col() +
+   theme_classic() + #Previously: theme_minimal()
+    scale_y_continuous(
+      breaks = seq(0, 2000, 200),
+      labels = seq(0, 2000, 200)
+    ) +
+    scale_fill_brewer(palette = "Set1", name="Lemmata and translation", labels=c("Changing climate / měnící se klima", "Climate change / změna klima", "Climate is changing / klima se měnit", "Climatic count / klimatický + seznam slov", "Global warming / globální oteplování", "Heating of the planet / oteplování planeta"))+ 
+    labs(x = element_blank(),
+             y = "Lemma occurences per year",
+             fill = "")
+ggsave("climate_term_counts_plot.png", width = 15, height = 10, dpi = 600)
 ```
 

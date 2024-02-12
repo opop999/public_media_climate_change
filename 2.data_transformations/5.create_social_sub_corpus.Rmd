@@ -1,0 +1,179 @@
+---
+title: "Sub-corpus creation: Social Inequality and Care (SIC)"
+---
+# Load necessary packages
+```{r include=FALSE}
+# Package names
+packages <- c("dplyr", "stringr", "readr", "parallel")
+
+# Install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+invisible(lapply(packages, library, character.only = TRUE))
+
+```
+
+# MAIN STRING to search for: get doc_ids of articles with match
+```{r}
+# Construct a search string, which will use single and multi-word expressions
+# Since we are using a lemmatized corpus, we need to use lemmas instead of words
+sic_search_string <-
+  c(
+    "starat se",
+    "pečovat", 
+    "péče", 
+    "pomáhat", 
+    "pomoc", 
+    "chudoba", 
+    "exekuce", 
+    "dluh", 
+    "dávka", 
+    "osamělost", 
+    "samota", 
+    "vyloučení", 
+    "vyloučený", 
+    "vystěhovat", 
+    "bezdomovec", 
+    "bezdomovectví", 
+    "nezaměstnanost", 
+    "odbory", 
+    "sociální bydlení", 
+    "sociální péče", 
+    "sociální odbor", 
+    "sociální spravedlnost", 
+    "sociálně slabý", 
+    "pomoc humanitární", 
+    "pomoc rozvojový", 
+    "pomoc lékařský", 
+    "pomoc psychologický", 
+    "pomoc v nezaměstnanosti", 
+    "pomoc finanční"
+    # We add regex word boundaries \\b to avoid matching substrings
+    # e.g. "klimatický" would match "klimatickým" and "klimatickými" otherwise
+    # Also, we collapse the vector into a single string, which is separated by the OR operator |
+    # The resulting string is then used in the str_detect() function
+    # The ideas is to detect the presence of at least one of the expressions in the string
+    # Such a document is then considered to be a "SIC article"
+  )  %>% str_c("\\b", ., "\\b", collapse = "|") 
+
+# Identify UPIPE-processed chunks of interest
+path_to_input_udpipe <- "data/udpipe_processed"
+udpipe_chunks_path <-
+  list.files(
+    path = file.path(path_to_input_udpipe),
+    pattern = "*.rds",
+    full.names = TRUE
+  )
+
+# Specify a function to extract doc_ids of articles with match
+get_sic_articles <- function(udpipe_chunk_path) {
+  readRDS(udpipe_chunk_path) %>%
+    mutate(doc_id,
+           text = str_to_lower(lemma, locale = "cs"),
+           .keep = "none") %>%
+    group_by(doc_id) %>%
+    summarize(
+      text = str_flatten(text, collapse = " ", na.rm = TRUE),
+      # Combine all lemmas into a single string
+      sic_string_matches = str_c(unlist(
+        str_extract_all(text, sic_search_string)
+      ), collapse = " | ") # Extract SIC string matches from the text
+    ) %>%
+    ungroup() %>%
+    filter(nchar(sic_string_matches) > 0) # Filter out documents with no SIC string matches
+  select(doc_id, sic_string_matches) # Select only the doc_id and sic_string_matches columns
+}
+
+```
+
+# Iterate over the list of UDPIPE chunks and extract all of the documents that match the search string
+```{r}
+if (Sys.info()[['sysname']] == "Windows") {
+sic_article_ids <- lapply(udpipe_chunks_path, get_sic_articles) %>% bind_rows()
+} else {
+sic_article_ids <- mclapply(udpipe_chunks_path, get_sic_articles,  mc.cores = detectCores() - 2) %>% bind_rows()
+}
+
+saveRDS(sic_article_ids, "data/sic_sub_corpus/sic_article_ids.rds")
+```
+
+# FILTER manually labelled articles: get doc_ids to filter out
+```{r}
+# Manually labelled sub-corpus V2
+# The column "your_notes" contains "x" for articles, which are not relevant for the sub-corpus
+# We want to get the "doc_id" of these articles and filter them out from the sub-corpus V3
+get_doc_ids_to_filter <- function(corpus_v2_labelled, filter_by) {
+  # Load the manually labelled sub-corpus V2, which was downloaded from the Google Sheets
+  corpus_v2 <- read_csv(corpus_v2_labelled, col_types = "cccc")
+  # Filter by pattern of interest on the column of interest
+  doc_ids_to_filter <- corpus_v2 %>%
+    mutate(your_notes = str_to_lower(your_notes, locale = "cs")) %>%
+    filter(str_detect(your_notes, filter_by)) %>%
+    pull(article_id)
+  
+  return(doc_ids_to_filter)
+}
+# Load the manually labelled dataset and get the doc_ids of articles to filter out
+doc_ids_to_remove <- get_doc_ids_to_filter("data/sic_sub_corpus/sic_articles_string_v2.csv", filter_by = "^x")
+saveRDS(doc_ids_to_remove, "data/sic_sub_corpus/doc_ids_to_remove.rds")
+```
+
+Final step: Export sub-corpus with texts to upload to Google Sheets for manual annotation and review,
+while filtering out the articles, which were already manually labelled as irrelevant in the sub-corpus V2.
+```{r}
+sic_article_ids <- readRDS("data/sic_sub_corpus/sic_article_ids.rds")
+doc_ids_to_remove <- readRDS("data/sic_sub_corpus/doc_ids_to_remove.rds")
+
+path_to_input_regex <- "data/regex_processed"
+regex_chunks_path <-
+  list.files(
+    path = file.path(path_to_input_regex),
+    pattern = "*.rds",
+    full.names = TRUE
+  )
+
+# Specify function, which will extract the texts of interest based on relevant doc_ids
+get_sic_texts <-
+  function(regex_chunk_path,
+           doc_ids_to_remove,
+           sic_article_ids) {
+    regex_chunk_path %>%
+      readRDS() %>%
+      filter(!article_id %in% doc_ids_to_remove) %>%
+      inner_join(sic_article_ids, by = c("article_id" = "doc_id"))
+  }
+```
+
+# Iterate over the list of Regex chunks and get all of the relevant texts
+```{r}
+if (Sys.info()[['sysname']] == "Windows") {
+  sic_corpus  <-
+    lapply(regex_chunks_path, function(x)
+      get_sic_texts(x, doc_ids_to_remove, sic_article_ids)) %>% bind_rows()
+} else {
+  # If not Linux - non-parallelized lapply
+  sic_corpus <-
+    mclapply(regex_chunks_path, function(x)
+      get_sic_texts(x, doc_ids_to_remove, sic_article_ids),  mc.cores = detectCores() - 2) %>% bind_rows()
+}
+
+# Save final SIC sub-corpus
+saveRDS(sic_corpus, "data/sic_sub_corpus/sic_corpus.rds")
+```
+
+# Prepare the file for Google Sheets upload
+```{r}
+# We probably need to observe the Google Sheets 50k character limit, otherwise the text of the article will not appear at all.
+sic_corpus_truncated <- sic_corpus %>% 
+  mutate(text = str_trunc(str_squish(text), width = 49997, side = "right", ellipsis = "..."))
+  
+# Save the sub-corpus to a CSV file, which we upload to Google Sheets for manual annotation and review
+write_csv(sic_corpus_truncated, "data/sic_sub_corpus/sic_articles_truncated.csv")
+
+```
+
+
